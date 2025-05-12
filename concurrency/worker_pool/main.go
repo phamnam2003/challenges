@@ -39,7 +39,6 @@ func crawler() {
 					log.Println(err)
 					continue
 				}
-				// close ngay sau khi xử lý xong
 				func() {
 					defer res.Body.Close()
 
@@ -49,7 +48,6 @@ func crawler() {
 						return
 					}
 
-					// Trích domain từ URL
 					parsedURL, err := url.Parse(urlWebsite)
 					if err != nil {
 						log.Println(err)
@@ -57,7 +55,6 @@ func crawler() {
 					}
 					domain := parsedURL.Hostname()
 
-					// Ghi vào file tên là domain.txt
 					fileName := fmt.Sprintf("%s.txt", domain)
 					err = os.WriteFile(fileName, bytesRes, 0644)
 					if err != nil {
