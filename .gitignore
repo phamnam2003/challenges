@@ -38,6 +38,7 @@ uploads
 # logs folder
 logs/**/*.log
 test/api/logs/**/*.log
+**/*.txt
 
 # ide
 .idea/
