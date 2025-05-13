@@ -32,12 +32,25 @@ func CancelOrder(cancelChan chan<- string, cancelOrders []string) {
 func HandlerOrder(buyChan <-chan Message, cancelChan <-chan string) {
 	for {
 		select {
-		case buy := <-buyChan:
+		case buy, ok := <-buyChan:
 			{
+				if ok {
+					log.Printf("[HANDLER_ORDER]: %+v", buy)
+				} else {
+					buyChan = nil
+				}
 			}
-		case cancel := <-cancelChan:
+		case cancel, ok := <-cancelChan:
 			{
+				if ok {
+					log.Printf("[HANDLER_CANCEL_ORDER]: %+v", cancel)
+				} else {
+					cancelChan = nil
+				}
 			}
+		}
+		if buyChan == nil && cancelChan == nil {
+			break
 		}
 	}
 }
@@ -61,5 +74,5 @@ func main() {
 	go CancelOrder(cancelChan, cancelOrders)
 	go HandlerOrder(buyChan, cancelChan)
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(12 * time.Second)
 }
