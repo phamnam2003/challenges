@@ -74,5 +74,5 @@ func main() {
 	go CancelOrder(cancelChan, cancelOrders)
 	go HandlerOrder(buyChan, cancelChan)
 
-	time.Sleep(12 * time.Second)
+	time.Sleep(18 * time.Second)
 }
