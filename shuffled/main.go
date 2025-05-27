@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	inputFile := "words.txt"
+	inputFile := "words.txt.base"
 	numFiles := 10
 	outputDir := "shuffled"
 
