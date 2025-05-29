@@ -13,11 +13,15 @@ var (
 )
 
 func getInstance() *single {
-	once.Do(func() {
-		if singleInstance == nil {
-			singleInstance = &single{}
-			fmt.Println("create new instance")
-		}
-	})
+	if singleInstance == nil {
+		once.Do(func() {
+			if singleInstance == nil {
+				singleInstance = &single{}
+				fmt.Println("create new instance")
+			}
+		})
+	} else {
+		fmt.Println("get instance")
+	}
 	return singleInstance
 }
