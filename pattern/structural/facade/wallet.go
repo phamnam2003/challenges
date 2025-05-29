@@ -15,12 +15,11 @@ func newWallet() *Wallet {
 func (w *Wallet) creditBalance(amount int) {
 	w.balance += amount
 	fmt.Println("Wallet balance added successfully")
-	return
 }
 
 func (w *Wallet) debitBalance(amount int) error {
 	if w.balance < amount {
-		return fmt.Errorf("Balance is not sufficient")
+		return fmt.Errorf("balance is not sufficient")
 	}
 	fmt.Println("Wallet balance is Sufficient")
 	w.balance = w.balance - amount
