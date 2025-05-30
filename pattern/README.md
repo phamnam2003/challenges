@@ -17,7 +17,7 @@
 ### Technical Debt
 
 - Causes of technical debt:
-  
+
   - **1. Business pressure**: Sometime business circumstances might force you to roll out features before they're completely finished. In this case, patches and kludges will appear in the code to hide the unfinished parts of the project.
 
   - **2. Lack of understanding of the consequences of technical debt**: Sometimes your employer might not understand that technical debt has “interest” insofar as it slows down the pace of development as debt accumulates. This can make it too difficult to dedicate the team’s time to refactoring because management doesn't see the value of it.
@@ -61,7 +61,23 @@
   - 2. Managers appreciate proactive refactoring as it eliminates the need for special refactoring tasks later. Happy bosses make happy programmers
 
 - **4. During the code review**:
-  
+
   - 1. The code review maybe the last chance to tidy up the code before it becomes available to the public.
 
   - 2. It's best to perform such reviews in a pair with an author. This way you could fix simple problems quickly and gauge the time for fixing the more difficult ones.
+
+### How to refactor
+
+- **1. The code should become cleaner**:
+
+  - 1. If the code remains just as unclean after refactoring... Well, I'm sorry, but you've just wasted an hour of your life. Try to figure out why this happened.
+
+  - 2. It frequently happens when you move away from refactoring with small changes and mix a who brunch of refactoring into one big change. So it's very easy to lose your mind, especially if you have a time limit.
+
+  - 3. But it can also happen when working with extremely sloppy code. Whatever you improve, the code as a whole remains disaster.
+
+  - 4. In this case, it's a worthwhile to think about completely rewriting parts of the code. But before that, you should have written tests and set aside a good chunk of time. Otherwise, you'll end up with the kinds of result we talked about in the first paragraph.
+
+- **2. New functionality shouldn't be created during refactoring**: Don't mix refactoring and direct development of new features. Try to separate these processes at least within the confines of individual commits.
+
+- **3. All existing tests must pass after refactoring**
