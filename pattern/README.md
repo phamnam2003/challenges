@@ -37,3 +37,31 @@
   - **9. Lack of compliance monitoring**: This happens when everyone working on the project writes code as they see fit (i.e. the same way they wrote the last project).
 
   - **10. Incompetence**: This is when the developer just doesn't know how to write decent code.
+
+### When to refactor
+
+- **1.Rule Of Three**:
+
+  - 1. When you're doing something for the first time, just get it done.
+ 
+  - 2. When you're doing something similar for the second time, cringe at having to repeat but do the same thing anyway.
+ 
+  - 3. When you're doing something for the third time, start refactoring.
+
+- **2. When adding feature**:
+
+  - 1. Refactoring helps you understand other people's code. If you have to deal with something else's dirty code, try to refactor it first. Clean code is much easier to grasp. You will improve it it not only for yourself but also for those who use it after you.
+
+  - 2. Refactoring makes it easier to add new feature. It's much easier to make changes in clean code.
+
+- **3. When fixing a bug**:
+
+  - 1. Bugs in code behave just like those in real life: they live in the darkest, dirties places in code. Clean your code and errors will practically discover themselves.
+
+  - 2. Managers appreciate proactive refactoring as it eliminates the need for special refactoring tasks later. Happy bosses make happy programmers
+
+- **4. During the code review**:
+  
+  - 1. The code review maybe the last chance to tidy up the code before it becomes available to the public.
+
+  - 2. It's best to perform such reviews in a pair with an author. This way you could fix simple problems quickly and gauge the time for fixing the more difficult ones.
