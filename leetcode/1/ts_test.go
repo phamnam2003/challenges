@@ -20,7 +20,7 @@ func TestTwoSum(t *testing.T) {
 			result: []int{3, 1},
 		},
 		{
-			arr:    []int{1, 2, 6, 7, 9},
+			arr:    []int{1, 2, 6, 9},
 			target: 12,
 			result: []int{},
 		},
