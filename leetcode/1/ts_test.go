@@ -19,6 +19,11 @@ func TestTwoSum(t *testing.T) {
 			target: 9,
 			result: []int{3, 1},
 		},
+		{
+			arr:    []int{1, 2, 6, 7, 9},
+			target: 12,
+			result: []int{},
+		},
 	}
 
 	for _, c := range tCases {
