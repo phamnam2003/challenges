@@ -8,6 +8,7 @@ import (
 )
 
 func TestNumIdenticalPairs(t *testing.T) {
+	t.Parallel()
 	tCases := []struct {
 		arrs     []int
 		expected int
@@ -31,7 +32,10 @@ func TestNumIdenticalPairs(t *testing.T) {
 	}
 
 	for _, c := range tCases {
-		count := gpairs.NumIdenticalPairs(c.arrs)
-		require.Equal(t, c.expected, count)
+		t.Run("good_pairs", func(t *testing.T) {
+			t.Parallel()
+			count := gpairs.NumIdenticalPairs(c.arrs)
+			require.Equal(t, c.expected, count)
+		})
 	}
 }

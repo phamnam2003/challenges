@@ -8,6 +8,7 @@ import (
 )
 
 func TestIsPathCrossing(t *testing.T) {
+	t.Parallel()
 	tCases := []struct {
 		path string
 		expt bool
@@ -31,6 +32,9 @@ func TestIsPathCrossing(t *testing.T) {
 	}
 
 	for _, tc := range tCases {
-		require.Equal(t, pcross.IsPathCrossing(tc.path), tc.expt)
+		t.Run(tc.path, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, pcross.IsPathCrossing(tc.path), tc.expt)
+		})
 	}
 }
