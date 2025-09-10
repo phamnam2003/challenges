@@ -4,6 +4,7 @@ import (
 	"errors"
 )
 
+// getGun is the factory method that returns the gun based on the type passed
 func getGun(gunType string) (IGun, error) {
 	switch gunType {
 	case "ak47":
