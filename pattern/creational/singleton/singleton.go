@@ -5,13 +5,16 @@ import (
 	"sync"
 )
 
+// single is the singleton struct
 type single struct{}
 
+// define instance and once variables
 var (
 	singleInstance *single
 	once           sync.Once
 )
 
+// getInstance func returns the singleton instance
 func getInstance() *single {
 	if singleInstance == nil {
 		once.Do(func() {
