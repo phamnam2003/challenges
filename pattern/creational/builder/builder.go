@@ -1,5 +1,6 @@
 package main
 
+// IBuilder is the builder interface
 type IBuilder interface {
 	setWindowType()
 	setDoorType()
@@ -7,6 +8,7 @@ type IBuilder interface {
 	getHouse() House
 }
 
+// getBuilder is the builder factory
 func getBuilder(builderType string) IBuilder {
 	if builderType == "normal" {
 		return newNormalBuilder()
