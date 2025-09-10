@@ -1,7 +1,9 @@
 package main
 
+// Adidas is a concrete factory
 type Adidas struct{}
 
+// makeShoe creates an Adidas shoe
 func (a *Adidas) makeShoe() IShoe {
 	return &AdidasShoe{
 		Shoe: Shoe{
@@ -11,6 +13,7 @@ func (a *Adidas) makeShoe() IShoe {
 	}
 }
 
+// makeShirt creates an Adidas shirt
 func (a *Adidas) makeShirt() IShirt {
 	return &AdidasShirt{
 		Shirt: Shirt{
