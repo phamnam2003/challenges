@@ -13,10 +13,12 @@ var dressFactorySingleInstance = &DressFactory{
 	dressMap: make(map[string]Dress),
 }
 
+// DressFactory make type contains map dress
 type DressFactory struct {
 	dressMap map[string]Dress
 }
 
+// getDressByType get dress by dressType from dress map
 func (d *DressFactory) getDressByType(dressType string) (Dress, error) {
 	if d.dressMap[dressType] != nil {
 		return d.dressMap[dressType], nil
@@ -31,7 +33,7 @@ func (d *DressFactory) getDressByType(dressType string) (Dress, error) {
 		return d.dressMap[dressType], nil
 	}
 
-	return nil, fmt.Errorf("Wrong dress type passed")
+	return nil, fmt.Errorf("wrong dress type passed")
 }
 
 func getDressFactorySingleInstance() *DressFactory {
