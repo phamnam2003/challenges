@@ -2,6 +2,7 @@ package main
 
 import "fmt"
 
+// WalletFacade is the facade struct
 type WalletFacade struct {
 	account      *Account
 	wallet       *Wallet
@@ -10,6 +11,7 @@ type WalletFacade struct {
 	ledger       *Ledger
 }
 
+// newWalletFacade is the constructor for WalletFacade
 func newWalletFacade(accountID string, code int) *WalletFacade {
 	fmt.Println("Starting create account")
 	walletFacacde := &WalletFacade{
@@ -23,6 +25,7 @@ func newWalletFacade(accountID string, code int) *WalletFacade {
 	return walletFacacde
 }
 
+// addMoneyToWallet adds money to the wallet
 func (w *WalletFacade) addMoneyToWallet(accountID string, securityCode int, amount int) error {
 	fmt.Println("Starting add money to wallet")
 	err := w.account.checkAccount(accountID)
@@ -39,6 +42,7 @@ func (w *WalletFacade) addMoneyToWallet(accountID string, securityCode int, amou
 	return nil
 }
 
+// deductMoneyFromWallet deducts money from the wallet
 func (w *WalletFacade) deductMoneyFromWallet(accountID string, securityCode int, amount int) error {
 	fmt.Println("Starting debit money from wallet")
 	err := w.account.checkAccount(accountID)
