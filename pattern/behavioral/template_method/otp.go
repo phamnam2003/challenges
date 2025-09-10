@@ -1,5 +1,6 @@
 package main
 
+// IOtp is the interface that defines the methods for OTP generation and sending
 type IOtp interface {
 	genRandomOTP(int) string
 	saveOTPCache(string)
@@ -21,10 +22,12 @@ type IOtp interface {
 //  return nil
 // }
 
+// Otp contains the template method
 type Otp struct {
 	iOtp IOtp
 }
 
+// genAndSendOTP is the template method that defines the steps to generate and send an OTP
 func (o *Otp) genAndSendOTP(otpLength int) error {
 	otp := o.iOtp.genRandomOTP(otpLength)
 	o.iOtp.saveOTPCache(otp)
