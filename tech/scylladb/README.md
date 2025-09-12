@@ -46,3 +46,7 @@ docker-compose -f tech/scylladb/docker-compose.yml up -d --build
   - `--overprovisioned`: Set to 1 if you are running ScyllaDB on a machine with less than 8GB RAM.
   - `seeds`: IP address of the seed node (only for nodes other than the first one).
   - `--developer-mode`: which relaxes checks for things like XFS and enables Scylla to run on unsupported configurations (which usually results in suboptimal performance). Default value is true. Should turn off in production.
+
+### Query
+
+- "Use prepared statements for queries that are executed multiple times in your application." - `ScyllaDB`
