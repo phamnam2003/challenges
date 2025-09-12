@@ -47,6 +47,19 @@ docker-compose -f tech/scylladb/docker-compose.yml up -d --build
   - `seeds`: IP address of the seed node (only for nodes other than the first one).
   - `--developer-mode`: which relaxes checks for things like XFS and enables Scylla to run on unsupported configurations (which usually results in suboptimal performance). Default value is true. Should turn off in production.
 
+### Keyspace and Table Creation
+
+1. Keyspace Creation:
+
+Command to create keyspace:
+
+```bash
+CREATE KEYSPACE IF NOT EXISTS <KEYSPACE_NAME> WITH replication = {'class': '<CLASS>', '<DATA_CENTER>': <REPLICATION_FACTOR_NUMS>};
+```
+
+- KEYSPACE_NAME: A keyspace is a namespace that defines data replication on nodes. It is the outermost container for data in ScyllaDB.
+- CLASS: The replication strategy to use. Common options are 'SimpleStrategy' for single data center deployments and 'NetworkTopologyStrategy' for multi-data center deployments. I recommend using 'NetworkTopologyStrategy' for all of times, even you have only 1 data center.
+
 ### Query
 
 - "Use prepared statements for queries that are executed multiple times in your application." - `ScyllaDB`. After use prepared statements, you can execute the query with the provided parameters, and release prepared statements.
