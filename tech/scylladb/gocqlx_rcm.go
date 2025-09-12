@@ -7,6 +7,7 @@ import (
 	"github.com/phamnam2003/challenges/tech/scylladb/models"
 	sccore "github.com/phamnam2003/challenges/tech/scylladb/sc_core"
 	"github.com/scylladb/gocqlx/v2"
+	"github.com/scylladb/gocqlx/v2/qb"
 )
 
 type Mutant struct {
@@ -72,4 +73,11 @@ func main() {
 	if err := q.ExecRelease(); err != nil {
 		log.Fatalf("error update: %s", err)
 	}
+
+	stmt, names := qb.Select("mutant_data").Columns("first_name", "last_name", "address", "picture_location").Where(qb.Eq("last_name"), qb.Eq("first_name")).ToCql()
+	q = session.Query(stmt, names).BindStruct(mU)
+	if err := q.GetRelease(&mU); err != nil {
+		log.Printf("unable to get mutant data: %s", err)
+	}
+	log.Printf("get mutant_data with query builder: %+v", mU)
 }
