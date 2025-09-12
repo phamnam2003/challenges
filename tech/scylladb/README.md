@@ -50,7 +50,6 @@ docker-compose -f tech/scylladb/docker-compose.yml up -d --build
 ### Keyspace and Table Creation
 
 1. Keyspace Creation:
-
 Command to create keyspace:
 
 ```bash
@@ -59,6 +58,42 @@ CREATE KEYSPACE IF NOT EXISTS <KEYSPACE_NAME> WITH replication = {'class': '<CLA
 
 - KEYSPACE_NAME: A keyspace is a namespace that defines data replication on nodes. It is the outermost container for data in ScyllaDB.
 - CLASS: The replication strategy to use. Common options are 'SimpleStrategy' for single data center deployments and 'NetworkTopologyStrategy' for multi-data center deployments. I recommend using 'NetworkTopologyStrategy' for all of times, even you have only 1 data center.
+
+2. Table Creation:
+Command to create table:
+
+```bash
+CREATE TABLE catalog.mutant_data (
+    <TABLE_COLUMNS> <DATA_TYPE>,
+    PRIMARY KEY ((first_name, last_name))
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
+    AND comment = ''
+    AND compaction = {'class': 'IncrementalCompactionStrategy'}
+    AND compression = {'sstable_compression': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND speculative_retry = '99.0PERCENTILE'
+    AND tombstone_gc = {'mode': 'repair', 'propagation_delay_in_seconds': '3600'};
+```
+
+- TABLE_OPTIONS: opts is really important for performance tuning. Some common options include:
+  - `compaction`: Determines how data is compacted on disk. Options include 'SizeTieredCompactionStrategy' (default value - balance), 'LeveledCompactionStrategy' (sys strong read), and 'TimeWindowCompactionStrategy' (time series data).
+  - `compression`: Specifies the compression algorithm to use for the table. Options include 'LZ4Compressor' (default value - good for majority), 'SnappyCompressor', and 'DeflateCompressor'.
+  - `bloom_filter_fp_chance`: Sets the false positive chance for the Bloom filter. Lower values reduce false positives but increase memory usage.
+  - `caching`: Configures caching options for the table. Options include 'ALL', 'KEYS_ONLY', and 'ROWS_ONLY'.
+  - `comment`: A comment or description for the table.
+  - `crc_check_chance`: Sets the probability of performing a CRC check on data read from disk. Default is 1 (always check).
+  - `default_time_to_live`: Sets the default time-to-live (TTL) for data
+  - `gc_grace_seconds`: Specifies the grace period for garbage collection of tombstones (deleted data). Default is 864000 seconds (10 days).
+  - `max_index_interval` and `min_index_interval`: Control the size of the index. Options include values between 1 and 32768. Default values are 2048 and 128, respectively.
+  - `memtable_flush_period_in_ms`: Sets the interval for flushing memtables to disk. Default is 0 (disabled).
+  - `speculative_retry`: Configures speculative retry behavior for read operations. Options include 'NONE', 'ALWAYS', and percentile-based values like '99.0PERCENTILE'.
+  - `tombstone_gc`: Configures tombstone garbage collection settings. Options include 'mode' (e.g., 'repair', 'disabled') and 'propagation_delay_in_seconds'.
 
 ### Query
 
