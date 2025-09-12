@@ -49,4 +49,4 @@ docker-compose -f tech/scylladb/docker-compose.yml up -d --build
 
 ### Query
 
-- "Use prepared statements for queries that are executed multiple times in your application." - `ScyllaDB`
+- "Use prepared statements for queries that are executed multiple times in your application." - `ScyllaDB`. After use prepared statements, you can execute the query with the provided parameters, and release prepared statements.
