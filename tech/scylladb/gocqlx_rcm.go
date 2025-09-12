@@ -52,7 +52,7 @@ func main() {
 	// get one row from table with filter call bind struct filter
 	q = session.Query(mutantTable.Get()).BindStruct(m)
 	if err := q.GetRelease(&m); err != nil {
-		log.Fatal("unable to get mutant data", err)
+		log.Printf("unable to get mutant data: %s", err)
 	}
 	log.Printf("get one mutant_data: %+v", m)
 
@@ -64,5 +64,21 @@ func main() {
 	q = session.Query(mutantTable.Get()).BindStruct(m)
 	if err := q.GetRelease(&m); err != nil {
 		log.Printf("error get mutant data: %v %v", err, gocql.ErrNotFound)
+	}
+
+	// insert record into table mutant_data serve update query
+	q = session.Query(mutantTable.Insert()).BindStruct(m)
+	if err := q.ExecRelease(); err != nil {
+		log.Fatal("unable to insert mutant data", err)
+	}
+
+	mU := Mutant{
+		FirstName: "Pham",
+		LastName:  "Nam",
+		Address:   "HungYen, Vietnam",
+	}
+	q = session.Query(mutantTable.Update("address")).BindStruct(mU)
+	if err := q.ExecRelease(); err != nil {
+		log.Fatalf("error update: %s", err)
 	}
 }
