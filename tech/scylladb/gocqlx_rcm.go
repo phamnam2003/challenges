@@ -73,4 +73,6 @@ func main() {
 		log.Printf("unable to get mutant data: %s", err)
 	}
 	log.Printf("get mutant_data with query builder: %+v", mU)
+
+	// TODO: you can use Exec(), Get(), Select() to don't clear prepared statement cache query
 }
