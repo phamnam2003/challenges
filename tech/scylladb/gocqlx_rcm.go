@@ -10,13 +10,6 @@ import (
 	"github.com/scylladb/gocqlx/v2/qb"
 )
 
-type Mutant struct {
-	FirstName       string `db:"first_name"`
-	LastName        string `db:"last_name"`
-	Address         string `db:"address"`
-	PictureLocation string `db:"picture_location"`
-}
-
 func main() {
 	cluster := sccore.CreateCluster(gocql.Quorum, "catalog", "localhost:9042")
 
