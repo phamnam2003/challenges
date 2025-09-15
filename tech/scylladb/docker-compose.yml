@@ -2,7 +2,7 @@ services:
   scylla_node1:
     image: scylladb/scylla:2025.3
     container_name: scylla_node1
-    command: --smp 2 --memory 2G --overprovisioned 1
+    command: --smp 2 --memory 2G --overprovisioned 1 --authenticator PasswordAuthenticator --authorizer CassandraAuthorizer
     ports:
       - "9042:9042" # CQL
       - "7000:7000" # inter-node communication
