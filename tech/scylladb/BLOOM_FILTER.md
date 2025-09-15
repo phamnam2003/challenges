@@ -9,3 +9,11 @@
 - They are widely used in **databases**, **caching systems**, and **networking** to `reduce` unnecessary disk or network access. By filtering out non-existent elements early, Bloom filters help *improve* `performance` and `reduce` *I/O costs*.
 - They are especially useful in systems like ScyllaDB and Cassandra to avoid reading SSTables that do not contain the requested key.
 - Overall, *Bloom filters* offer a `fast`, `space-efficient`, and *probabilistic approach* to membership testing in large datasets.
+
+## Configuration in ScyllaDB
+
+- Configured at the table level using the `bloom_filter_fp_chance` option.
+- This option sets the desired false positive probability for the Bloom filter.
+- The value is a float between `0` and `1`, where lower values reduce false
+- Values typically range from `0.01` - default value (1% false positive rate) to `0.1` (10% false positive rate).
+- A lower false positive rate means the Bloom filter is more accurate but uses more memory.
