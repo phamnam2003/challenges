@@ -45,7 +45,7 @@ GRANT ALL PERMISSIONS ON KEYSPACE my_keyspace TO app_user;
 nodetool repair system_auth
 ```
 
-2. Configure via Docker:
+2. Configure via Docker
 
 - You can set it via arg in command section in `docker-compose.yml` file:
 
@@ -63,3 +63,22 @@ nodetool repair system_auth
       scylla-cluster:
         ipv4_address:
 ```
+
+3. Creating a Custom Superuser
+
+- The default ScyllaDB superuser role is `cassandra` with password `cassandra`. Users with the `cassandra` role have full access to the database and can run any CQL command on the database resources.
+To improve security, we recommend creating a custom superuser. You should:
+  - Use the default `cassandra` superuser to log in.
+  - Create *a custom superuser*.
+  - Log in as the custom superuser.
+  - *Remove* the `cassandra` role.
+
+```cql
+CREATE ROLE <custom_superuser name>  WITH SUPERUSER = true AND LOGIN = true and PASSWORD = '<custom_superuser_password>';
+DROP ROLE cassandra;
+```
+
+4. Reset authenticator password.
+
+- Stop all the nodes in the cluster.
+- Remove system tables starting with role prefix from */var/lib/scylla/data/system* directory.
