@@ -32,3 +32,13 @@
 - Zstd (Zstandard) offers a very high compression ratio, often better than LZ4 and Snappy, especially at higher compression levels.
 - It is **dictionary-based compression**, look like LZ4, but improve algorithms, suitable for workloads where storage savings are a priority, and some additional CPU usage is
 - Balance between compress speed, decompression speed, and compression ratio.
+
+### Compression Configuration
+
+- `class`: Type compression algorithm. Options include:
+  - `org.apache.cassandra.io.compress.LZ4Compressor` (default value - good for majority)
+  - `org.apache.cassandra.io.compress.SnappyCompressor`
+  - `org.apache.cassandra.io.compress.DeflateCompressor`
+  - `org.apache.cassandra.io.compress.ZstdCompressor`
+- `chunk_length_in_kb`: Size of each compressed block in KB. Default is `64` KB. Larger chunk sizes can improve compression ratio but may increase read latency for small queries.
+- `crc_check_chance`: Probability of performing a CRC check on decompressed data. Default: 1.0
