@@ -10,3 +10,25 @@
   - Improved read performance due to reduced I/O operations.
   - Potentially lower network bandwidth usage when replicating data between nodes.
   - Non reduces **read amplification** cause SSTable overlap.
+
+### Type Compression
+
+#### LZ4 Compression
+
+- Good compression ratio and very fast decompression speed, making it suitable for read-heavy workloads.
+- It is the default compression algorithm in ScyllaDB and is a good choice for majority
+- It only decompress blocks contains keys need to read, so it use less CPU resources when reading data.
+- Conform with system have workloads latency sensitive, because CPU less affected and decompress high performance.
+
+#### Snappy Compression
+
+- Compression and decompression speed is very fast, but the compression ratio is lower than LZ4.
+- It is suitable for workloads where speed is more critical than storage savings.
+- When reading data, Snappy may use more CPU resources compared to LZ4, it only decompress blocks contains keys need to read.
+- Conform with system have workloads fast read/write.
+
+#### Zstd Compression
+
+- Zstd (Zstandard) offers a very high compression ratio, often better than LZ4 and Snappy, especially at higher compression levels.
+- It is **dictionary-based compression**, look like LZ4, but improve algorithms, suitable for workloads where storage savings are a priority, and some additional CPU usage is
+- Balance between compress speed, decompression speed, and compression ratio.
