@@ -179,3 +179,36 @@ type MutantDataStruct struct {
  PictureLocation string
 }
 ```
+
+### Backup and Restore
+
+1. Backup:
+
+- Run cmd below to backup Schema.
+
+```bash
+cqlsh -e "DESCRIBE KEYSPACE my_keyspace" > my_keyspace_schema.cql
+```
+
+- With backup data, you can use `nodetool snapshot` to create a snapshot of your data.
+
+```bash
+nodetool snapshot my_keyspace -t backup_2025_09_15
+```
+
+2. Restore:
+
+- Run cmd to restore Schema.
+
+```bash
+cqlsh -f my_keyspace_schema.cql
+```
+
+- Restore data from snapshot: Copy the snapshot files from the backup location to the appropriate data directory on your ScyllaDB nodes. After copying, run `nodetool refresh` to make ScyllaDB recognize the new data.
+
+```bash
+cp /var/lib/scylla/data/my_keyspace/my_table-<table_uuid>/snapshots/backup_2025_09_15/* \
+   /var/lib/scylla/data/my_keyspace/my_table-<table_uuid>/
+
+nodetool refresh my_keyspace my_table
+```
