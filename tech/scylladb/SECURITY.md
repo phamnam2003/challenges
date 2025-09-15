@@ -82,3 +82,8 @@ DROP ROLE cassandra;
 
 - Stop all the nodes in the cluster.
 - Remove system tables starting with role prefix from */var/lib/scylla/data/system* directory.
+- Start ScyllaDB nodes.
+
+5. Grant authorization CQL References
+
+- [docs.scylladb.com](https://docs.scylladb.com/manual/stable/operating-scylla/security/authorization.html)
