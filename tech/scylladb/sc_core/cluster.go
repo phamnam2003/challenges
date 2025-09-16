@@ -19,6 +19,10 @@ func CreateCluster(consistency gocql.Consistency, keyspace string, hosts ...stri
 	cls.RetryPolicy = retryPolicy
 	cls.Timeout = 5 * time.Second
 	cls.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(gocql.RoundRobinHostPolicy())
+	cls.Authenticator = &gocql.PasswordAuthenticator{
+		Username: "phamnam2003",
+		Password: "phamnam123@",
+	}
 
 	return cls
 }
