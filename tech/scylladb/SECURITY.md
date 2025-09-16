@@ -8,7 +8,9 @@
 
 3. Encryption: ScyllaDB supports encryption for data at rest and in transit. You can configure SSL/TLS for secure communication between clients and the database, as well as enable encryption for data stored on disk.
 
-4. Auditing: ScyllaDB offers auditing capabilities to track and log database activities,
+4. Auditing: ScyllaDB offers auditing capabilities to track and log database activities.
+
+5. SSL/TLS: ScyllaDB supports SSL/TLS encryption for client-server communication, ensuring that data transmitted over the network is secure, permissions for users and roles. You can define roles with specific privileges and assign them to users, allowing
 
 ## Configuration Best Practices
 
@@ -87,3 +89,72 @@ DROP ROLE cassandra;
 5. Grant authorization CQL References
 
 - [docs.scylladb.com](https://docs.scylladb.com/manual/stable/operating-scylla/security/authorization.html)
+- Database Role, Alter Role, Drop Role, List Roles, Grant, Revoke, List Permissions, List Role Permissions
+
+6. Certificate-based Authentication
+
+- Enable CQL transport TLS using client certificate verification in each node by configuring the `client_encryption_options` option in the **/etc/scylla/scylla.yaml** file:
+
+```yaml
+client_encryption_options:
+   enabled: True
+   certificate: <server cert>
+   keyfile: <server key>
+   truststore: <shared trust>
+   require_client_auth: True
+```
+
+- `enabled`: Set to `True` to enable TLS encryption for client connections.
+- `certificate`: Path to the server's SSL certificate file.
+- `keyfile`: Path to the server's private key file.
+- `truststore`: Path to the truststore file containing trusted CA certificates.
+- `require_client_auth`: Set to `True` to enforce client certificate authentication.
+
+- Configure the certificate based authenticator in each node.
+
+```yaml
+  authenticator: CertificateAuthenticator
+```
+
+- ***Encryption: Data in Transit Client to Node***:
+  - Run `nodetool drain` on each node to flush memtables to SSTables and stop accepting writes.
+  - Stop ScyllaDB on each node.
+  - Update the `client_encryption_options` section in the /etc/scylla/scylla.yaml file with the appropriate paths to the certificate, keyfile, and truststore.
+
+```yaml
+client_encryption_options:
+    enabled: true
+    certificate: /etc/scylla/db.crt
+    keyfile: /etc/scylla/db.key
+    truststore: <path to a PEM-encoded trust store> (optional)
+    certficate_revocation_list: <path to a PEM-encoded CRL file> (optional)
+    require_client_auth: ...
+    priority_string: SECURE128:-VERS-TLS1.0:-VERS-TLS1.1
+```
+
+- ***Encryption: Data in Transit Node to Node***:
+  - Communication between all or some nodes can be encrypted. The controlling parameter is `server_encryption_options`.
+  - Configure the internode_encryption, under `/etc/scylla/scylla.yaml`.
+
+```yaml
+server_encryption_options:
+    internode_encryption: <none|rack|dc|all|transitional>
+    certificate: <path to a PEM-encoded certificate file>
+    keyfile: <path to a PEM-encoded key for certificate>
+    truststore: <path to a PEM-encoded trust store> (optional)
+    certficate_revocation_list: <path to a PEM-encoded CRL file> (optional)
+```
+
+- Options `sever_encryption_options`:
+  - `internode_encryption` can be one of the following:
+    - `none` (default) - No traffic is encrypted.
+    - `all` - Encrypts all traffic
+    - `dc` - Encrypts the traffic between the data centers.
+    - `rack` - Encrypts the traffic between the racks.
+    - `transitional` - Encrypts all outgoing traffic, but allows non-encrypted incoming. Used for upgrading cluster(s) without downtime.
+  - `certificate` - A PEM format certificate, either self-signed, or provided by a certificate authority (CA).
+  - `keyfile` - The corresponding PEM format key for the certificate.
+  - `truststore` - Optional path to a PEM format certificate store of trusted CAs. If not provided, ScyllaDB will attempt to use the system trust store to authenticate certificates.
+  - `certficate_revocation_list` - The path to a PEM-encoded certificate revocation list (CRL) - a list of issued certificates that have been revoked before their expiration date.
+  - `require_client_auth` - Set to True to require client side authorization. False by default.
+  - `priority_string` - Specifies session’s handshake algorithms and options to use. By default there are none
