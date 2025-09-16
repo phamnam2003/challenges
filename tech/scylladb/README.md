@@ -3,6 +3,12 @@
 1. Install ScyllaDB on your server or local machine. You can follow the official installation guide [here](https://docs.scylladb.com/manual/stable/).
 
 - Recommendation: ScyllaDB works best on machines with a lot of RAM and CPU cores. A minimum of 8GB RAM and 4 CPU cores is recommended for development purposes.
+- Configure aio-max-nr: ScyllaDB uses asynchronous I/O for better performance. You may need to increase the limit of aio-max-nr on your system. You can do this by adding the following line to `/etc/sysctl.conf`:
+
+```bash
+echo "fs.aio-max-nr = 1048576" | sudo tee -a /etc/sysctl.conf
+sysctl -p /etc/sysctl.conf
+```
 
 2. Install ScyllaDB via Docker (optional):
 
