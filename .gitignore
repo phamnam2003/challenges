@@ -42,3 +42,9 @@ test/api/logs/**/*.log
 
 # ide
 .idea/
+
+*.key
+*.pem
+*.srl
+*.crt
+*.csr
