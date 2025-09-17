@@ -70,7 +70,7 @@ frozen_collection_type: FROZEN '<' MAP '<' `cql_type` ',' `cql_type` '>' '>'
                        : | FROZEN '<' LIST '<' `cql_type` '>' '>'
 ```
 
-### Map
+### Maps
 
 - A map is a (sorted) *set of key-value pairs*, where keys are **unique**, and the map is *sorted by its keys*. You can define a map column with:
 
@@ -118,3 +118,45 @@ UPDATE users USING TTL 10 SET favs['color'] = 'green' WHERE id = 'jsmith';
 ```
 
 - It will only apply the TTL to the `{ 'color' : 'green' }` record, the rest of the map `remaining unaffected`.
+
+### Sets
+
+- A `set` is a (sorted) collection of *unique* values. You can define a set column with:
+
+```bash
+CREATE TABLE images (
+    name text PRIMARY KEY,
+    owner text,
+    tags set<text> // A set of text values
+);
+```
+
+- A set column *can be assigned new contents* with either **INSERT** or **UPDATE**, as in the following examples. In both cases, the new contents replace the set’s old content, if any:
+
+```bash
+INSERT INTO images (name, owner, tags)
+            VALUES ('cat.jpg', 'jsmith', { 'pet', 'cute' });
+
+UPDATE images SET tags = { 'kitten', 'cat', 'lol' } WHERE name = 'cat.jpg';
+```
+
+- Note that ScyllaDB does not *distinguish* an empty set from a missing value, thus assigning an empty set ({}) to a set is *the same as deleting it*.
+- Adding one or multiple elements (as this is a set, inserting an already existing element is a no-op):
+
+```bash
+UPDATE images SET tags = tags + { 'gray', 'cuddly' } WHERE name = 'cat.jpg';
+```
+
+- Removing one or multiple elements (if an element doesn’t exist, removing it is a no-op but no error is thrown):
+
+```bash
+UPDATE images SET tags = tags - { 'cat' } WHERE name = 'cat.jpg';
+```
+
+- Selecting an element (if the element doesn’t exist, returns null):
+
+```bash
+SELECT tags['gray'] FROM images;
+```
+
+- Lastly, as for `maps`, *TTLs*, if used, only apply to the newly inserted values.
