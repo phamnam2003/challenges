@@ -11,4 +11,14 @@ create_materialized_view_statement: CREATE MATERIALIZED VIEW [ IF NOT EXISTS ] `
                                   :     WITH `table_options`
 ```
 
+- Example:
+
+```bash
+CREATE MATERIALIZED VIEW monkeySpecies_by_population AS
+    SELECT * FROM monkeySpecies
+    WHERE population IS NOT NULL AND species IS NOT NULL
+    PRIMARY KEY (population, species)
+    WITH comment='Allow query by population instead of species';
+```
+
 - The `CREATE MATERIALIZED VIEW` statement creates a new materialized view. *Each view is a set of rows* that *corresponds* to the **rows** that are present in the ***underlying***, or base table, as specified in the SELECT statement. A materialized view cannot be directly updated, but updates to the base table will cause *corresponding updates* in the `view`.
