@@ -36,3 +36,42 @@ CREATE MATERIALIZED VIEW monkeySpecies_by_population AS
     - `Ordering` by clause
     - `Limit` clause
     - `ALLOW FILTERING` clause
+
+## [Materialized View Primary Key](https://docs.scylladb.com/manual/stable/cql/mv.html#mv-primary-key)
+
+- A view must have a primary key, and that primary key must conform to the following restrictions:
+  - It must `contain` *all* the **primary key** columns of the base table. This ensures that every row in the view corresponds to *exactly* one row of the base table.
+  - It can only contain a single column that is not a primary key column in the base table.
+
+```sql
+CREATE TABLE t (
+    k int,
+    c1 int,
+    c2 int,
+    v1 int,
+    v2 int,
+    PRIMARY KEY (k, c1, c2)
+);
+
+-- ALLOW CREATE MATERIALIZED VIEW statements:
+CREATE MATERIALIZED VIEW mv1 AS
+    SELECT * FROM t WHERE k IS NOT NULL AND c1 IS NOT NULL AND c2 IS NOT NULL
+    PRIMARY KEY (c1, k, c2);
+
+CREATE MATERIALIZED VIEW mv1 AS
+    SELECT * FROM t WHERE v1 IS NOT NULL AND k IS NOT NULL AND c1 IS NOT NULL AND c2 IS NOT NULL
+    PRIMARY KEY (v1, k, c1, c2);
+-- END ALLOW CREATE MATERIALIZED VIEW statements
+
+-- NOT ALLOW CREATE MATERIALIZED VIEW statements:
+-- error: cannot include both v1 and v2 in the primary key as both are not in the base table primary key
+CREATE MATERIALIZED VIEW mv1 AS
+    SELECT * FROM t WHERE k IS NOT NULL AND c1 IS NOT NULL AND c2 IS NOT NULL AND v1 IS NOT NULL
+    PRIMARY KEY (v1, v2, k, c1, c2)
+
+-- error: must include k in the primary as it's a base table primary key column
+CREATE MATERIALIZED VIEW mv1 AS
+    SELECT * FROM t WHERE c1 IS NOT NULL AND c2 IS NOT NULL
+    PRIMARY KEY (c1, c2)
+-- END NOT ALLOW CREATE MATERIALIZED VIEW statements
+```
