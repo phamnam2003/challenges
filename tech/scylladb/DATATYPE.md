@@ -12,7 +12,7 @@ cql_type: `native_type` | `collection_type` | `user_defined_type` | `tuple_type`
   - a hexadecimal literal.
   - one of the `typeAsBlob()` cql functions. There is such a function for each `native type`.
 
-```bash
+```sql
 INSERT INTO blobstore (id, data) VALUES (4375645, 0xabf7971528cfae76e00000008bacdf);
 INSERT INTO blobstore (id, data) VALUES (4375645, intAsBlob(33));
 ```
@@ -74,7 +74,7 @@ frozen_collection_type: FROZEN '<' MAP '<' `cql_type` ',' `cql_type` '>' '>'
 
 - A map is a (sorted) *set of key-value pairs*, where keys are **unique**, and the map is *sorted by its keys*. You can define a map column with:
 
-```bash
+```sql
 CREATE TABLE users (
     id text PRIMARY KEY,
     name text,
@@ -84,7 +84,7 @@ CREATE TABLE users (
 
 - A map column *can be assigned new contents* with either **INSERT** or **UPDATE**, as in the following examples. In both cases, the new contents replace the map’s old content, if any:
 
-```bash
+```sql
 INSERT INTO users (id, name, favs)
            VALUES ('jsmith', 'John Smith', { 'fruit' : 'Apple', 'band' : 'Beatles' });
 
@@ -93,27 +93,27 @@ UPDATE users SET favs = { 'fruit' : 'Banana' } WHERE id = 'jsmith';
 
 - Updating or inserting one or more elements:
 
-```bash
+```sql
 UPDATE users SET favs['author'] = 'Ed Poe' WHERE id = 'jsmith';
 UPDATE users SET favs = favs + { 'movie' : 'Cassablanca', 'band' : 'ZZ Top' } WHERE id = 'jsmith';
 ```
 
 - Removing one or more element (if an element doesn’t exist, removing it is a no-op but no error is thrown):
 
-```bash
+```sql
 DELETE favs['author'] FROM users WHERE id = 'jsmith';
 UPDATE users SET favs = favs - { 'movie', 'band'} WHERE id = 'jsmith';
 ```
 
 - Selecting one element:
 
-```bash
+```sql
 SELECT favs['fruit'] FROM users WHERE id = 'jsmith';
 ```
 
 - Lastly, *TTLs* are allowed for both **INSERT** and **UPDATE**, but in both cases, the TTL set only applies to the newly inserted/updated elements. In other words:
 
-```bash
+```sql
 UPDATE users USING TTL 10 SET favs['color'] = 'green' WHERE id = 'jsmith';
 ```
 
@@ -123,7 +123,7 @@ UPDATE users USING TTL 10 SET favs['color'] = 'green' WHERE id = 'jsmith';
 
 - A `set` is a (sorted) collection of *unique* values. You can define a set column with:
 
-```bash
+```sql
 CREATE TABLE images (
     name text PRIMARY KEY,
     owner text,
@@ -133,7 +133,7 @@ CREATE TABLE images (
 
 - A set column *can be assigned new contents* with either **INSERT** or **UPDATE**, as in the following examples. In both cases, the new contents replace the set’s old content, if any:
 
-```bash
+```sql
 INSERT INTO images (name, owner, tags)
             VALUES ('cat.jpg', 'jsmith', { 'pet', 'cute' });
 
@@ -143,19 +143,19 @@ UPDATE images SET tags = { 'kitten', 'cat', 'lol' } WHERE name = 'cat.jpg';
 - Note that ScyllaDB does not *distinguish* an empty set from a missing value, thus assigning an empty set ({}) to a set is *the same as deleting it*.
 - Adding one or multiple elements (as this is a set, inserting an already existing element is a no-op):
 
-```bash
+```sql
 UPDATE images SET tags = tags + { 'gray', 'cuddly' } WHERE name = 'cat.jpg';
 ```
 
 - Removing one or multiple elements (if an element doesn’t exist, removing it is a no-op but no error is thrown):
 
-```bash
+```sql
 UPDATE images SET tags = tags - { 'cat' } WHERE name = 'cat.jpg';
 ```
 
 - Selecting an element (if the element doesn’t exist, returns null):
 
-```bash
+```sql
 SELECT tags['gray'] FROM images;
 ```
 
@@ -168,7 +168,7 @@ As mentioned above and further discussed at the end of this section, lists have 
 
 - A `list` is an ordered list of values (*not necessarily unique*). You can define a list column with:
 
-```bash
+```sql
 CREATE TABLE plays (
     id text PRIMARY KEY,
     game text,
@@ -179,7 +179,7 @@ CREATE TABLE plays (
 
 - A list column *can be assigned new contents* with either **INSERT** or **UPDATE**, as in the following examples. In both cases, the new contents replace the list’s old content, if any:
 
-```bash
+```sql
 INSERT INTO plays (id, game, players, scores)
            VALUES ('123-afde', 'quake', 3, [17, 4, 2]);
 
@@ -189,26 +189,26 @@ UPDATE plays SET scores = [3, 9, 4] WHERE id = '123-afde';
 - Note that ScyllaDB does not distinguish an empty list from a missing value, thus assigning an empty list ([]) to a list is *the same as deleting it*.
 - Appending and prepending values to a list:
 
-```bash
+```sql
 UPDATE plays SET players = 5, scores = scores + [ 14, 21 ] WHERE id = '123-afde';
 UPDATE plays SET players = 6, scores = [ 3 ] + scores WHERE id = '123-afde';
 ```
 
 - Setting the value at a particular position in the list. This implies that the list has a pre-existing element for that position or an error will be thrown that the list is too small:
 
-```bash
+```sql
 UPDATE plays SET scores[1] = 7 WHERE id = '123-afde';
 ```
 
 - Deleting `all` the *occurrences of particular values* in the list (if a particular element doesn’t occur at all in the list, it is simply ignored, and no error is thrown):
 
-```bash
+```sql
 UPDATE plays SET scores = scores - [ 12, 21 ] WHERE id = '123-afde';
 ```
 
 - Selecting an element by its position in the list:
 
-```bash
+```sql
 SELECT scores[1] FROM plays;
 ```
 
