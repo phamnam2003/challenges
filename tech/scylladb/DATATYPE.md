@@ -213,3 +213,5 @@ SELECT scores[1] FROM plays;
 ```
 
 - Lastly, as for `maps`, *TTLs*, when used, only apply to the newly inserted values.
+
+### [User-Defined Types (UDTs)](https://docs.scylladb.com/manual/stable/cql/types.html#user-defined-types)
