@@ -4,7 +4,7 @@
 
 -You can create a materialized view on a table using a CREATE MATERIALIZED VIEW statement: You can create a materialized view on a table using a `CREATE MATERIALIZED VIEW` statement:
 
-```bash
+```sql
 create_materialized_view_statement: CREATE MATERIALIZED VIEW [ IF NOT EXISTS ] `view_name` AS
                                   :     `select_statement`
                                   :     PRIMARY KEY '(' `primary_key` ')'
@@ -13,7 +13,7 @@ create_materialized_view_statement: CREATE MATERIALIZED VIEW [ IF NOT EXISTS ] `
 
 - Example:
 
-```bash
+```sql
 CREATE MATERIALIZED VIEW monkeySpecies_by_population AS
     SELECT * FROM monkeySpecies
     WHERE population IS NOT NULL AND species IS NOT NULL
