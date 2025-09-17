@@ -160,3 +160,56 @@ SELECT tags['gray'] FROM images;
 ```
 
 - Lastly, as for `maps`, *TTLs*, if used, only apply to the newly inserted values.
+
+### Lists
+
+[!Note]
+As mentioned above and further discussed at the end of this section, lists have limitations and specific performance considerations that you should take into account before using them. In general, if you can use a set instead of a list, always prefer a set.
+
+- A `list` is an ordered list of values (*not necessarily unique*). You can define a list column with:
+
+```bash
+CREATE TABLE plays (
+    id text PRIMARY KEY,
+    game text,
+    players int,
+    scores list<int> // A list of integers
+);
+```
+
+- A list column *can be assigned new contents* with either **INSERT** or **UPDATE**, as in the following examples. In both cases, the new contents replace the list’s old content, if any:
+
+```bash
+INSERT INTO plays (id, game, players, scores)
+           VALUES ('123-afde', 'quake', 3, [17, 4, 2]);
+
+UPDATE plays SET scores = [3, 9, 4] WHERE id = '123-afde';
+```
+
+- Note that ScyllaDB does not distinguish an empty list from a missing value, thus assigning an empty list ([]) to a list is *the same as deleting it*.
+- Appending and prepending values to a list:
+
+```bash
+UPDATE plays SET players = 5, scores = scores + [ 14, 21 ] WHERE id = '123-afde';
+UPDATE plays SET players = 6, scores = [ 3 ] + scores WHERE id = '123-afde';
+```
+
+- Setting the value at a particular position in the list. This implies that the list has a pre-existing element for that position or an error will be thrown that the list is too small:
+
+```bash
+UPDATE plays SET scores[1] = 7 WHERE id = '123-afde';
+```
+
+- Deleting `all` the *occurrences of particular values* in the list (if a particular element doesn’t occur at all in the list, it is simply ignored, and no error is thrown):
+
+```bash
+UPDATE plays SET scores = scores - [ 12, 21 ] WHERE id = '123-afde';
+```
+
+- Selecting an element by its position in the list:
+
+```bash
+SELECT scores[1] FROM plays;
+```
+
+- Lastly, as for `maps`, *TTLs*, when used, only apply to the newly inserted values.
