@@ -75,3 +75,25 @@ CREATE MATERIALIZED VIEW mv1 AS
     PRIMARY KEY (c1, c2)
 -- END NOT ALLOW CREATE MATERIALIZED VIEW statements
 ```
+
+- Note that, although each materialized view is a separate table, a user *cannot modify* a view directly:
+
+```bash
+cqlsh:mykeyspace> DELETE FROM building_by_city WHERE city='Taipei';
+
+InvalidRequest: code=2200 [Invalid query] message="Cannot directly modify a materialized view"
+```
+
+## Compaction Strategies with Materialized Views
+
+- Materialized views, just like regular tables, use one of the available *`compaction strategies`*. When a materialized view is created, it does not inherit its base table compaction strategy settings, because the data model of a view does not necessarily have the same characteristics as the one from its base table. Instead, the default compaction strategy (*SizeTieredCompactionStrategy*) is used.
+
+```sql
+CREATE MATERIALIZED VIEW ks.mv AS SELECT a,b FROM ks.t WHERE
+  a IS NOT NULL
+  AND b IS NOT NULL
+  PRIMARY KEY (a,b)
+  WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};
+```
+
+- You can also change the compaction strategy of an already existing materialized view, using an `ALTER MATERIALIZED VIEW` statement.
