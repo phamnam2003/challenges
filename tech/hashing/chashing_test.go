@@ -12,7 +12,7 @@ func TestConsistentHashing(t *testing.T) {
 	t.Parallel()
 
 	servers := []string{"serverA", "serverB", "serverC"}
-	ring := hashing.NewHashRing(servers, 256) // 100 replicas mỗi server
+	ring := hashing.NewHashRing(servers, 256)
 
 	clients := make([]string, 0, 20)
 	for range 1_000_000 {
@@ -27,7 +27,6 @@ func TestConsistentHashing(t *testing.T) {
 	}
 	fmt.Println("Distribution:", counts)
 
-	// thêm serverD
 	ring.AddNode("serverD")
 
 	fmt.Println("\n=== After adding serverD ===")
