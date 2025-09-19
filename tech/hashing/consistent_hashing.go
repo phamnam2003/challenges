@@ -2,7 +2,7 @@
 package hashing
 
 import (
-	"crypto/sha1"
+	"hash/fnv"
 	"sort"
 )
 
@@ -19,14 +19,12 @@ type HashRing struct {
 	nodes []ServerNode
 }
 
-// hashKey generates a hash for a given key using SHA-1 and returns the first 4 bytes as a uint32.
+// hashKey computes the FNV-1a hash of a given key [can use another hash func, like sha-1, ...].
 func hashKey(key string) uint32 {
-	// make SHA-1 hasher, result Sum() is 20 bytes
-	h := sha1.New()
-	h.Write([]byte(key))
-	sum := h.Sum(nil)
+	hash := fnv.New32a() // init fnv hasher 32-bit
+	hash.Write([]byte(key))
 
-	return (uint32(sum[0])<<24 | uint32(sum[1])<<16 | uint32(sum[2])<<8 | uint32(sum[3]))
+	return hash.Sum32()
 }
 
 // AddNode adds a new server node to the hash ring.
