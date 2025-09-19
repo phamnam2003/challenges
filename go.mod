@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	github.com/gocql/gocql v1.7.0
+	github.com/google/uuid v1.6.0
 	github.com/scylladb/gocqlx/v2 v2.8.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.0
