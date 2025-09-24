@@ -64,3 +64,4 @@ sudo systemctl enable prometheus-node-exporter (optional)
 - Add data source prometheus in grafana:
   - In sidebar, click the gear icon to open the `Connections` menu -> `Add Datasource` -> Choose `Prometheus` -> Enter URL to connect Prometheus.
 - Default Port of `Node Exporter` is `9100`
+- Configuration Grafana Dashboard for Node Exporter: [Node Exporter Full](https://grafana.com/grafana/dashboards/1860-node-exporter-full/): use Dashboard ID `1860` for *Node Exporter Full Version* or `14513` for *Linux Node Exporter*
