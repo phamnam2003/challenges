@@ -15,5 +15,11 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
 
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: ob_alert_manager
+    ports:
+      - 9093:9093
+
 volumes:
   grafana_data:
