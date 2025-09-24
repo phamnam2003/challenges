@@ -3,6 +3,14 @@ global:
   scrape_timeout: 10s
   evaluation_interval: 15s
 
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["ob_alert_manager:9093"]
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
 scrape_configs:
   - job_name: "prometheus"
     static_configs:
