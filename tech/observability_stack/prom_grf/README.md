@@ -65,3 +65,46 @@ sudo systemctl enable prometheus-node-exporter (optional)
   - In sidebar, click the gear icon to open the `Connections` menu -> `Add Datasource` -> Choose `Prometheus` -> Enter URL to connect Prometheus.
 - Default Port of `Node Exporter` is `9100`
 - Configuration Grafana Dashboard for Node Exporter: [Node Exporter Full](https://grafana.com/grafana/dashboards/1860-node-exporter-full/): use Dashboard ID `1860` for *Node Exporter Full Version* or `14513` for *Linux Node Exporter*
+
+## PromQL
+
+- `PromQL` is a *powerful query language* used in Prometheus to query and manipulate time series data. It allows users to select and aggregate time series data in real-time, making it a crucial tool for *monitoring* and *alerting* in Prometheus.
+- Is a *specialized query language* in Prometheus for working with time-series data. It enables users to *filter*, *aggregate*, and *compute metrics* to create visual `dashboards` or define `alerting rules`. PromQL transforms raw exporter data into clear and actionable insights, making system monitoring more effective.
+
+## Rules
+
+- Recording Rules: allow users to *precompute* frequently needed or *computationally* expensive expressions and save their result as a new set of time series. Example: instead of query `rate(node_cpu_seconds_total{mode="user"}[5m])` every time, you can create a recording rule to save the result as `instance:cpu_usage:rate5m`. This new time series can then be queried like any other time series.
+
+```yaml
+groups:
+  - name: recording_rules
+    interval: 30s
+    rules:
+      - record: instance:cpu_usage:rate5m
+        expr: rate(node_cpu_seconds_total{mode="user"}[5m])
+```
+
+- Alerting Rules: allow users to define alert conditions based on `PromQL` expressions. When the condition is met, an alert is generated and sent to the `Alertmanager` for further processing.
+
+```yaml
+groups:
+  - name: alerting_rules
+    rules:
+      - alert: HighCPULoad
+        expr: avg(rate(node_cpu_seconds_total{mode="user"}[5m])) by (instance) > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU usage is high on instance {{ $labels.instance }}"
+          description: "CPU usage has been above 80% for more than 2 minutes."
+```
+
+### Import rules into Prometheus
+
+- Rules can be defined in separate YAML files and imported into the Prometheus configuration file using the `rule_files` directive, then import into field `rule_files` in `prometheus.yml`
+
+```yaml
+rule_files:
+  - "rules/*.yml"
+```
