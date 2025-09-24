@@ -108,3 +108,67 @@ groups:
 rule_files:
   - "rules/*.yml"
 ```
+
+# Alert Manager
+
+## What is Alertmanager?
+
+- `Alertmanager` handles alerts *sent by client applications* such as the Prometheus server. It takes care of `deduplicating`, `grouping`, and `routing` them to the correct receiver integration such as *email*, *PagerDuty*, or *OpsGenie*. It also takes care of *silencing and inhibition of alerts*.
+- The main steps to setting up alerting and notifications are:
+  - Setup and [configure](https://prometheus.io/docs/alerting/latest/configuration/) the Alertmanager.
+  - [Configure Prometheus](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#alertmanager_config) to talk to the Alertmanager
+  - Create [alerting rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/) in Prometheus
+
+## Configuration
+
+### Alerting Rules
+
+- Alerting rules allow you to define alert conditions based on Prometheus expression language expressions and to send notifications about firing alerts to an external service. Whenever the alert expression results in one or more vector elements at a given point in time, the alert counts as active for these elements' label sets.
+- Defining alerting rules:
+
+```yaml
+groups:
+- name: example
+  labels:
+    team: myteam
+  rules:
+  - alert: HighRequestLatency
+    expr: job:request_latency_seconds:mean5m{job="myjob"} > 0.5
+    for: 10m
+    keep_firing_for: 5m
+    labels:
+      severity: page
+    annotations:
+      summary: High request latency
+```
+
+- Templating:
+
+```yaml
+groups:
+- name: example
+  rules:
+
+  # Alert for any instance that is unreachable for >5 minutes.
+  - alert: InstanceDown
+    expr: up == 0
+    for: 5m
+    labels:
+      severity: page
+    annotations:
+      summary: "Instance {{ $labels.instance }} down"
+      description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 5 minutes."
+
+  # Alert for any instance that has a median request latency >1s.
+  - alert: APIHighRequestLatency
+    expr: api_http_request_latencies_second{quantile="0.5"} > 1
+    for: 10m
+    annotations:
+      summary: "High request latency on {{ $labels.instance }}"
+      description: "{{ $labels.instance }} has a median request latency above 1s (current value: {{ $value }}s)"
+```
+
+### Alert Configuration
+
+- [Alertmanager](https://github.com/prometheus/alertmanager) is configured via command-line flags and a configuration file. While the command-line flags configure immutable system parameters, the configuration file defines inhibition rules, notification routing and notification receivers.
+- [File Layout and global settings](https://prometheus.io/docs/alerting/latest/configuration/#file-layout-and-global-settings)
