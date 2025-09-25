@@ -1,0 +1,25 @@
+global:
+  smtp_from: "namphamhai7@gmail.com"
+  smtp_smarthost: "smtp.gmail.com:587"
+  smtp_auth_username: "namphamhai7@gmail.com"
+  smtp_require_tls: true
+  smtp_auth_password: "lmusziialwmipzqg"
+
+route:
+  receiver: "null"
+  group_by: [alertname, cluster]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  routes:
+    - matchers:
+        - alertname="NodeDown"
+        - severity=~"warning|critical"
+      receiver: "admin"
+
+receivers:
+  - name: "null" # break all actions
+  - name: "admin"
+    email_configs:
+      - to: 21A100100257@students.hou.edu.vn
+        send_resolved: true

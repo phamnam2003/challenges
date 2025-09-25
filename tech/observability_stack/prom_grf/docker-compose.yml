@@ -21,6 +21,8 @@ services:
     container_name: ob_alert_manager
     ports:
       - 9093:9093
+    volumes:
+      - ./alert_managers.yml:/etc/alertmanager/alertmanager.yml
 
 volumes:
   grafana_data:
