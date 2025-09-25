@@ -9,7 +9,12 @@ groups:
           severity: warning
         annotations:
           summary: "High CPU usage on {{ $labels.instance }}"
-          description: "CPU usage has been above 80% for more than 2 minutes."
+          description: |
+            CPU usage has been above 80% for more than 2 minutes.
+            • Job: {{ $labels.job }}
+            • Instance: {{ $labels.instance }}
+            • Current value: {{ $value }}%
+            • Started at: {{ .StartsAt }}
 
       # 2. Memory usage cao
       - alert: HighMemoryUsage
@@ -19,7 +24,12 @@ groups:
           severity: critical
         annotations:
           summary: "High Memory usage on {{ $labels.instance }}"
-          description: "Memory usage is above 85% for more than 2 minutes."
+          description: |
+            Memory usage is above 85% for more than 2 minutes.
+            • Job: {{ $labels.job }}
+            • Instance: {{ $labels.instance }}
+            • Current value: {{ $value }}%
+            • Started at: {{ .StartsAt }}
 
       # 3. Disk usage cao
       - alert: HighDiskUsage
@@ -29,7 +39,13 @@ groups:
           severity: critical
         annotations:
           summary: "High Disk usage on {{ $labels.instance }}"
-          description: "Disk usage is above 90% for more than 5 minutes."
+          description: |
+            Disk usage is above 90% for more than 5 minutes.
+            • Job: {{ $labels.job }}
+            • Instance: {{ $labels.instance }}
+            • Filesystem: {{ $labels.device }}
+            • Current value: {{ $value }}%
+            • Started at: {{ .StartsAt }}
 
       # 4. Node down
       - alert: NodeDown
@@ -39,4 +55,9 @@ groups:
           severity: critical
         annotations:
           summary: "Node {{ $labels.instance }} is down"
-          description: "The node exporter for {{ $labels.instance }} has not responded for 1 minute."
+          description: |
+            The node exporter for {{ $labels.instance }} has not responded.
+            • Job: {{ $labels.job }}
+            • Instance: {{ $labels.instance }}
+            • Status: DOWN
+            • Started at: {{ .StartsAt }}
