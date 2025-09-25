@@ -4,6 +4,7 @@ global:
   smtp_auth_username: "namphamhai7@gmail.com"
   smtp_require_tls: true
   smtp_auth_password: "lmusziialwmipzqg"
+  telegram_api_url: "https://api.telegram.org"
 
 route:
   receiver: "null"
@@ -23,3 +24,7 @@ receivers:
     email_configs:
       - to: 21A100100257@students.hou.edu.vn
         send_resolved: true
+    telegram_configs:
+      - send_resolved: true
+        bot_token: "7729070538:AAEuG8tiX2ZmX6ozXk3oDEiJAHQk6b7YcTU"
+        chat_id: 6197489552
