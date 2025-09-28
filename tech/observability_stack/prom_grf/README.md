@@ -172,3 +172,13 @@ groups:
 
 - [Alertmanager](https://github.com/prometheus/alertmanager) is configured via command-line flags and a configuration file. While the command-line flags configure immutable system parameters, the configuration file defines inhibition rules, notification routing and notification receivers.
 - [File Layout and global settings](https://prometheus.io/docs/alerting/latest/configuration/#file-layout-and-global-settings)
+
+## Monitoring Services
+
+- Node Exporter: provides hardware and OS metrics exposed by *\*NIX kernels*, `e.g. CPU`, `memory`, `disk`, `network`, etc.
+- Nginx Exporter: exposes `Nginx` metrics in a format that Prometheus can scrape.
+- Apache Exporter: exposes `Apache HTTP Server` metrics in a format that Prometheus can scrape.
+- MongoDB Exporter: exposes `MongoDB` metrics in a format that Prometheus can scrape.
+- Redis Exporter: exposes `Redis` metrics in a format that Prometheus can scrape.
+- Postgres Exporter: exposes `PostgreSQL` metrics in a format that Prometheus can scrape.
+- MySQL Exporter: exposes `MySQL` metrics in a format that Prometheus can scrape.
