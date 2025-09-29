@@ -7,6 +7,8 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./alert_rules.yml:/etc/prometheus/alert_rules.yml
+    networks:
+      - ob_net
 
   grafana:
     image: grafana/grafana:12.0.2-security-01
@@ -15,6 +17,8 @@ services:
       - 3000:3000
     volumes:
       - grafana_data:/var/lib/grafana
+    networks:
+      - ob_net
 
   alertmanager:
     image: prom/alertmanager:v0.28.1
@@ -23,6 +27,31 @@ services:
       - 9093:9093
     volumes:
       - ./alert_managers.yml:/etc/alertmanager/alertmanager.yml
+    networks:
+      - ob_net
+
+  loki:
+    image: grafana/loki:3.5.1
+    container_name: ob_loki
+    ports:
+      - 3100:3100
+    command: -config.file=/etc/loki/loki_conf.yml
+    volumes:
+      - ./loki_conf.yml:/etc/loki/loki_conf.yml:ro
+    networks:
+      - ob_net
+
+  promtail:
+    image: grafana/promtail:3.5.1
+    container_name: ob_promtail
+    command: -config.file=/etc/promtail/promtail_config.yml
+    volumes:
+      - ./promtail_conf.yml:/etc/promtail/promtail_config.yml
+      - ./2025-09-29.log:/var/log/custom.log
+    networks:
+      - ob_net
 
 volumes:
   grafana_data:
+networks:
+  ob_net:
