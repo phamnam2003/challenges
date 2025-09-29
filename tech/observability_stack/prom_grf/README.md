@@ -185,8 +185,53 @@ groups:
 
 # Logging with Loki and Promtail
 
+- Normally, logs are stored in a centralized logging system like `Elasticsearch`, `Splunk`, or `Graylog`. However, these systems can be complex to operate and expensive to scale. `Grafana Loki` is a new approach to log aggregation that is designed to be cost-effective and easy to operate.
+- `Grafana Loki` and `Grafana Promtail` are two components of the Grafana Loki stack, which is a set of open-source tools for *log aggregation and analysis*.
+
 ## Loki
+
+### Introduction
 
 - `Grafana Loki` is a set of *open source components* that can be composed into a fully featured *logging stack*. A small index and *highly compressed chunks simplifies* the operation and *significantly lowers* the cost of Loki.
 - Unlike other logging systems, Loki is built around the idea of only indexing `metadata` about your logs’ labels (just like Prometheus labels). Log data itself is then *compressed* and *stored in chunks* in object stores such as Amazon Simple Storage Service (S3) or Google Cloud Storage (GCS), or even locally on the filesystem.
 - Loki is a *horizontally scalable*, *highly available*, *multi-tenant log aggregation* system inspired by Prometheus. It’s designed to be `very cost-effective` and `easy to operate`. It *doesn’t index* the contents of the logs, but *rather a set of labels* for each log stream.
+
+### Install and Usage
+
+- You can install `Loki` via binary package or via `Docker`. You can follow the instructions in the [Loki install manually](https://grafana.com/docs/loki/latest/setup/install/local/#install-manually).
+
+```bash
+# For Linux Arch
+sudo pacman -S loki
+# For Debian/Ubuntu
+sudo apt-get install loki
+# For MacOS
+brew install loki
+```
+
+- If you use `Docker`, you can run Loki with the following `docker-compose.yml` or [Loki install by Docker](https://grafana.com/docs/loki/latest/setup/install/docker/#install-loki-with-docker-or-docker-compose)
+- Alerting in Loki: The recommended alert rule type in Grafana Alerting. These alert rules can query a wide range of backend data sources, including multiple data sources in a single alert rule. They support expression-based transformations, advanced alert conditions, images in notifications, handling of error and no data states, and more. [Docs](https://grafana.com/docs/loki/latest/alert/#loki-alerting-and-recording-rules)
+
+## Promtail
+
+### Introduction
+
+- `Promtail` is an `agent` which ships the contents of local logs to a Loki instance or Grafana Cloud. It is usually deployed to every machine that has applications needed to be monitored. `Promtail` is `responsible` for *gathering logs* and *sending them* to `Loki`. It can also `tail` log files and `push` them to `Loki`.
+[!Note]
+Promtail is now deprecated and will enter into Long-Term Support (LTS) beginning Feb. 13, 2025. This means that Promtail will no longer receive any new feature updates, but it will receive critical bug fixes and security fixes. Commercial support will end after the LTS phase, which we anticipate will extend for about 12 months until February 28, 2026. End-of-Life (EOL) phase for Promtail will begin once LTS ends. Promtail is expected to reach EOL on March 2, 2026, afterwards no future support or updates will be provided. All future feature development will occur in Grafana Alloy. If you are currently using Promtail, you should plan your migration to Alloy. The Alloy migration documentation includes a migration tool for converting your Promtail configuration to an [Alloy configuration](https://grafana.com/docs/alloy/latest/introduction/) with a single command.
+
+### Install and Usage
+
+- You can install `Promtail` via binary package or via `Docker`. You can follow the instructions in the [Promtail install manually](https://grafana.com/docs/loki/latest/clients/promtail/installation/#install-manually).
+
+```bash
+# For Linux Arch
+sudo pacman -S loki
+# For Debian/Ubuntu
+sudo apt-get install loki
+# For MacOS
+brew install loki
+```
+
+- Install by `Docker` with the following `docker-compose.yml` or [Promtail install by Docker](https://grafana.com/docs/loki/latest/clients/promtail/installation/#install-with-docker-or-docker-compose)
+- [Configuration](https://grafana.com/docs/loki/latest/send-data/promtail/configuration/) Promtail is configured via a YAML file. The configuration file is divided into several sections, each of which is described in detail below.
