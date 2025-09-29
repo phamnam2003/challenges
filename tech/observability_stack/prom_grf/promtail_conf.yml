@@ -23,3 +23,11 @@ scrape_configs:
         labels:
           job: customlog
           __path__: /var/log/custom.log
+    pipeline_stages:
+      - json:
+          expressions:
+            time: time
+      - timestamp:
+          source: time
+          format: "2006-01-02 15:04:05"
+          location: "Asia/Ho_Chi_Minh"
