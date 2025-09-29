@@ -182,3 +182,11 @@ groups:
 - Redis Exporter: exposes `Redis` metrics in a format that Prometheus can scrape.
 - Postgres Exporter: exposes `PostgreSQL` metrics in a format that Prometheus can scrape.
 - MySQL Exporter: exposes `MySQL` metrics in a format that Prometheus can scrape.
+
+# Logging with Loki and Promtail
+
+## Loki
+
+- `Grafana Loki` is a set of *open source components* that can be composed into a fully featured *logging stack*. A small index and *highly compressed chunks simplifies* the operation and *significantly lowers* the cost of Loki.
+- Unlike other logging systems, Loki is built around the idea of only indexing `metadata` about your logs’ labels (just like Prometheus labels). Log data itself is then *compressed* and *stored in chunks* in object stores such as Amazon Simple Storage Service (S3) or Google Cloud Storage (GCS), or even locally on the filesystem.
+- Loki is a *horizontally scalable*, *highly available*, *multi-tenant log aggregation* system inspired by Prometheus. It’s designed to be `very cost-effective` and `easy to operate`. It *doesn’t index* the contents of the logs, but *rather a set of labels* for each log stream.
