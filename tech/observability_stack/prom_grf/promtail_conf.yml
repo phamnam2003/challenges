@@ -9,13 +9,6 @@ clients:
   - url: http://ob_loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: system
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: varlogs
-          __path__: /var/log/*log
   - job_name: program
     static_configs:
       - targets:
@@ -27,7 +20,17 @@ scrape_configs:
       - json:
           expressions:
             time: time
+            level: level
+            route: route
+            method: method
+            message: message
+            error: error
+            trace_req: trace_req
       - timestamp:
           source: time
           format: "2006-01-02 15:04:05"
           location: "Asia/Ho_Chi_Minh"
+      - labels:
+          level:
+          route:
+          method:
