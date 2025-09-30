@@ -65,4 +65,5 @@ sentinel failover-timeout mymaster 10000
 sentinel parallel-syncs mymaster 1
 ```
 
-[!Note]: Adjust the `sentinel monitor` line to match your master Redis instance's IP address and port. The number `2` indicates that at least two Sentinels must agree that the master is down before a failover is initiated.
+> [!Note]
+> Adjust the `sentinel monitor` line to match your master Redis instance's IP address and port. The number `2` indicates that at least two Sentinels must agree that the master is down before a failover is initiated.
