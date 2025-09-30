@@ -37,3 +37,30 @@ rs.status()
 ```javascript
 rs.isMaster()
 ```
+
+# Install KeepAlived for Automatic Failover
+
+- `Keepalived` is a routing software written in C. It provides *simple and robust* facilities for load balancing and *high-availability* to Linux system and Linux based infrastructures. It is used to provide high availability by implementing the *Virtual Router Redundancy Protocol* (`VRRP`).
+- Install `Keepalived` on all nodes in the MongoDB cluster. Use the following command to install it:
+
+```bash
+sudo apt-get install keepalived
+```
+
+- Create or edit the `Keepalived` configuration file, usually located at `/etc/keepalived/keepalived.conf`. Below is an example configuration for a three-node MongoDB cluster:
+
+```conf
+vrrp_instance VI_1 {
+    state MASTER # State can be MASTER or BACKUP
+    interface eth0  # Replace with your network interface, `ens33` for example
+    virtual_router_id 51 # Unique ID for the VRRP instance
+    priority 101  # Higher priority for the primary node
+    advert_int 1 # Advertisement interval in seconds
+    authentication {
+        auth_type PASS
+        auth_pass your_password  # Replace with a secure password
+    }
+    virtual_ipaddress {
+      <VIRTUAL_IP_ADDRESS> # Replace with your virtual IP address
+    }
+```
