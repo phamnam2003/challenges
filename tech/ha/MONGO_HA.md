@@ -77,3 +77,9 @@ cfg.members[2].priority = 100  // Secondary node priority
 // reconfigure the replica set with the new configuration
 rs.reconfig(cfg)
 ```
+
+- Connect to `virtual_ipaddress` to access the `MongoDB` cluster. You can use the following command to connect:
+
+```bash
+mongosh --host <VIRTUAL_IP_ADDRESS>:27017
+```
