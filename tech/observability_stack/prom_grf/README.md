@@ -217,8 +217,9 @@ brew install loki
 ### Introduction
 
 - `Promtail` is an `agent` which ships the contents of local logs to a Loki instance or Grafana Cloud. It is usually deployed to every machine that has applications needed to be monitored. `Promtail` is `responsible` for *gathering logs* and *sending them* to `Loki`. It can also `tail` log files and `push` them to `Loki`.
-[!Note]
-Promtail is now deprecated and will enter into Long-Term Support (LTS) beginning Feb. 13, 2025. This means that Promtail will no longer receive any new feature updates, but it will receive critical bug fixes and security fixes. Commercial support will end after the LTS phase, which we anticipate will extend for about 12 months until February 28, 2026. End-of-Life (EOL) phase for Promtail will begin once LTS ends. Promtail is expected to reach EOL on March 2, 2026, afterwards no future support or updates will be provided. All future feature development will occur in Grafana Alloy. If you are currently using Promtail, you should plan your migration to Alloy. The Alloy migration documentation includes a migration tool for converting your Promtail configuration to an [Alloy configuration](https://grafana.com/docs/alloy/latest/introduction/) with a single command.
+
+> [!Note]
+> Promtail is now deprecated and will enter into Long-Term Support (LTS) beginning Feb. 13, 2025. This means that Promtail will no longer receive any new feature updates, but it will receive critical bug fixes and security fixes. Commercial support will end after the LTS phase, which we anticipate will extend for about 12 months until February 28, 2026. End-of-Life (EOL) phase for Promtail will begin once LTS ends. Promtail is expected to reach EOL on March 2, 2026, afterwards no future support or updates will be provided. All future feature development will occur in Grafana Alloy. If you are currently using Promtail, you should plan your migration to Alloy. The Alloy migration documentation includes a migration tool for converting your Promtail configuration to an [Alloy configuration](https://grafana.com/docs/alloy/latest/introduction/) with a single command.
 
 ### Install and Usage
 

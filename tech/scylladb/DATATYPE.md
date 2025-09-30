@@ -163,8 +163,8 @@ SELECT tags['gray'] FROM images;
 
 ### Lists
 
-[!Note]
-As mentioned above and further discussed at the end of this section, lists have limitations and specific performance considerations that you should take into account before using them. In general, if you can use a set instead of a list, always prefer a set.
+> [!Note]
+> As mentioned above and further discussed at the end of this section, lists have limitations and specific performance considerations that you should take into account before using them. In general, if you can use a set instead of a list, always prefer a set.
 
 - A `list` is an ordered list of values (*not necessarily unique*). You can define a list column with:
 

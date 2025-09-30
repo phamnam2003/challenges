@@ -79,8 +79,8 @@ AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
 
 - **Local Secondary Indexes** is an `enhancement` to **Global Secondary Indexes**, which allows ScyllaDB to *optimize workloads* where the partition key of the base table and the index are the same key.
 
-[!Note]
-Updates for *local secondary indexes* are *`performed synchronously`*. When updates are *`synchronous`*, the client acknowledges the write operation only after both the base table modification and the view update are written. This is important to note because the process is *no longer `asynchronous`*, and the modifications are immediately reflected in the index. In addition, if the view *update fails*, the client `receives` a write `error`.
+> [!Note]
+> Updates for *local secondary indexes* are *`performed synchronously`*. When updates are *`synchronous`*, the client acknowledges the write operation only after both the base table modification and the view update are written. This is important to note because the process is *no longer `asynchronous`*, and the modifications are immediately reflected in the index. In addition, if the view *update fails*, the client `receives` a write `error`.
 
 ```sql
 CREATE TABLE menus (location text, name text, price float, dish_type text, PRIMARY KEY(location, name));
@@ -129,5 +129,6 @@ SELECT * FROM menus WHERE location = 'Warsaw' and dish_type = 'Polish soup';
   - An indexing subquery (2) is used to fetch all matching base keys from the underlying materialized view.
   - The coordinator uses the resulting base key set to request appropriate rows from the base table (3), located in the **`same node`** as the Index
 - Both the base table and the underlying materialized view have the *same partition keys* for *corresponding rows*. That means that *their data resides on the same node* and can thus be *executed locally*, without having to contact another node. When using a **token aware policy**, the entire query will be done with *`zero inter-node` communication*.
-[!Note]
-When the same table has both `LSI` and `GSI`, ScyllaDB will *automatically* use the right Index for each query.
+
+> [!Note]
+> When the same table has both `LSI` and `GSI`, ScyllaDB will *automatically* use the right Index for each query.
