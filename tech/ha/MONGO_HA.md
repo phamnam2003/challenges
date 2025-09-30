@@ -64,3 +64,16 @@ vrrp_instance VI_1 {
       <VIRTUAL_IP_ADDRESS> # Replace with your virtual IP address
     }
 ```
+
+- But, `Keepalived` and `MongoDB` will be working wrong. It can be one node hold `virtual_ipaddress` but not `MongoDB Primary`. To fix this, you connect to `Master` node and open `MongoDB Shell`.
+
+```javascript
+mongosh
+cfd = rs.conf()
+cfg.members[0].priority = 101  // Primary node priority
+cfg.members[1].priority = 100  // Secondary node priority
+cfg.members[2].priority = 100  // Secondary node priority
+
+// reconfigure the replica set with the new configuration
+rs.reconfig(cfg)
+```
