@@ -30,3 +30,13 @@
 - Log Levels: Use appropriate log levels (e.g., DEBUG, INFO, WARN, ERROR, etc)
 - Don't log sensitive information: Avoid logging sensitive data like passwords, credit card numbers, etc.
 - Easily searchable: Ensure logs are indexed and searchable for quick retrieval.
+
+## Log Components
+
+- `Log Producer`: The application or service that generates log entries.
+- `Log Collector / Agent`: A tool or service that gathers logs from various sources.
+- `Log Transport / Forwarder`: The mechanism used to send logs from producers to collectors (e.g., HTTP, TCP, UDP).
+- `Log Processor`: A component that processes logs, such as filtering, parsing, or enriching log data.
+- `Log Storage / Index`: A system for storing logs, which can be a database, file system
+- `Log Query / Visualization`: Tools or interfaces for querying logs and statistics log.
+- `Alerting & Intergration`: Systems that monitor logs for specific patterns or thresholds and trigger alerts.
