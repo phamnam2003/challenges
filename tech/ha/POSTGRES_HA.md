@@ -35,4 +35,4 @@
 
 ## Installation
 
-- [Docs Percona](https://docs.percona.com/postgresql/17/solutions/ha-init-setup.html)
+- [Docs Percona HA](https://docs.percona.com/postgresql/17/solutions/ha-init-setup.html)
