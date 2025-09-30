@@ -1,0 +1,37 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  GO_VERSION: "1.22"
+  BINARY_NAME: "app"
+
+# Job build Golang
+build:
+  stage: build
+  image: golang:${GO_VERSION}
+  script:
+    - echo "===> Downloading dependencies..."
+    - go mod tidy
+    - echo "===> Building binary..."
+    - go build -o ${BINARY_NAME} ./cmd/server
+  artifacts:
+    paths:
+      - ${BINARY_NAME} # Lưu binary lại để các job sau dùng
+    expire_in: 1 week # Hết hạn sau 1 tuần
+
+# Job deploy
+deploy:
+  stage: deploy
+  image: alpine:latest
+  dependencies:
+    - build # Lấy artifacts từ job build
+  before_script:
+    - apk add --no-cache openssh-client
+  script:
+    - echo "===> Deploying to server..."
+    # Giả sử deploy qua SSH + SCP
+    - scp -o StrictHostKeyChecking=no ${BINARY_NAME} user@your-server:/home/app/${BINARY_NAME}
+    - ssh -o StrictHostKeyChecking=no user@your-server "systemctl restart myapp.service"
+  only:
+    - main # Chỉ chạy deploy khi push lên branch main
