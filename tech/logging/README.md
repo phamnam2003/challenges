@@ -27,3 +27,6 @@
 
 - Structure Logging: JSON format is widely used for its readability and ease of parsing.
 - Context/Correlation IDs: Include unique identifiers to trace requests across multiple services.
+- Log Levels: Use appropriate log levels (e.g., DEBUG, INFO, WARN, ERROR, etc)
+- Don't log sensitive information: Avoid logging sensitive data like passwords, credit card numbers, etc.
+- Easily searchable: Ensure logs are indexed and searchable for quick retrieval.
