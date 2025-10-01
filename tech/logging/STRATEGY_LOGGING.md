@@ -42,4 +42,20 @@
   "service": "myapp",
   "event": { "dataset": "springboot.log" }
 }
+
+{
+  "timestamp": "2024-11-27T06:21:42+00:00",
+  "log": { "level": "info" },
+  "lables": { "host": "::1", "env": "dev" },
+  "message": "Hibernate: SELECT * FROM accounts where id = 1 LIMIT 1",
+  "sql": {
+    "query": "SELECT * FROM accounts where id = 1 LIMIT 1;",
+    "status": "success",
+    "rows": 1,
+    "duration_ms": 12
+  },
+  "event": { "dataset": "nodejs.morgan" }
+}
 ```
+
+- Analyzed to create `index pattern` in `Kibana` for easy to search and visualize logs by field. Logs with low throughput, much index or the days have less logs -> server shared logs with expensive overhead.
