@@ -40,3 +40,10 @@
 - `Log Storage / Index`: A system for storing logs, which can be a database, file system
 - `Log Query / Visualization`: Tools or interfaces for querying logs and statistics log.
 - `Alerting & Intergration`: Systems that monitor logs for specific patterns or thresholds and trigger alerts.
+
+## Logging Stacks
+
+- `Grafana Loki`: A *horizontally scalable*, *highly available*, *multi-tenant log aggregation* system inspired by Prometheus. It combines with `Promtail` for log collection and `Grafana` for visualization.
+- `ELK Stack (Elasticsearch, Logstash, Kibana)`: A popular open-source stack for *searching*, *analyzing*, and *visualizing* log data in real-time. `Filebeat` is often used as a lightweight log shipper. `Elacticsearch` for storage and search, `Logstash` for processing, and `Kibana` for visualization, it is highly performance with search log.
+- `VEK stack (Vector, Elasticsearch, Kibana)`: A modern alternative to the ELK stack, `Vector` is a high-performance log collector and processor that can send logs to `Elasticsearch` for storage and `Kibana` for visualization. `Sources` (e.g., files, syslog), `Transforms` (e.g., parsing, filtering), and `Sinks` (e.g., Elasticsearch, Kafka).
+- `EFK Stack (Elasticsearch, Fluentd, Kibana)`: Similar to the ELK stack but uses `Fluentd` as the log collector and processor. `Fluentd` is known for its flexibility and ability to handle various data sources and formats.
