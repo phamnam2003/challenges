@@ -46,10 +46,19 @@ services:
       REGISTRY_HTTP_TLS_KEY: /certs/domain.key
     volumes:
       - ./data:/var/lib/registry
+      - ./certs:/certs
 ```
 
 - Trying connect to registry:
 
 ```bash
 curl https://localhost:5000/v2/_catalog
+```
+
+- Configure Docker to trust the self-signed certificate:
+
+```bash
+mkdir /etc/docker/certs.d/localhost:5000
+cp /certs/domain.crt /etc/docker/certs.d/localhost:5000/ca.crt
+systemctl restart docker
 ```
