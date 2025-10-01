@@ -62,3 +62,8 @@ mkdir /etc/docker/certs.d/localhost:5000
 cp /certs/domain.crt /etc/docker/certs.d/localhost:5000/ca.crt
 systemctl restart docker
 ```
+
+## Harbor Registry
+
+- Should have `VPS` or `Server` to install Harbor registry. You can use `AWS`, `DigitalOcean`, `Linode`, `Vultr`, etc.
+- Install [`Harbor` registry](https://goharbor.io/docs/2.0.0/install-config/)
