@@ -88,3 +88,24 @@ sudo /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -i
 ```bash
 curl --cacert /etc/elasticsearch/certs/http_ca.crt -u elastic:KHFDPeU6 https://localhost:9200
 ```
+
+- Install [`Kibana`](https://www.elastic.co/docs/deploy-manage/deploy/self-managed/install-kibana-from-archive-on-linux-macos) for log visualization, custom configuration in `/etc/kibana/kibana.yml`:
+
+```yaml
+server.port: 5601
+server.host: "0.0.0.0"
+server.name: "kibana-server"
+
+elasticsearch.ssl.certificateAuthorities: ["/etc/elasticsearch/certs/http_ca.crt"] # Certificate Authority path from elasticsearch generated before
+elasticsearch.hosts: ["https://localhost:9200"]
+```
+
+- Get token for `Kibana` to connect to `Elasticsearch`, and get verify code to login `Kibana` web UI:
+
+```bash
+# generate token for kibana
+sudo /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana 
+
+# get verify code to login kibana
+sudo /usr/share/kibana/bin/kibana-verification-code
+```
