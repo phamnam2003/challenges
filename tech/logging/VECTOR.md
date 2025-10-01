@@ -86,3 +86,8 @@ sinks:
   - [More information about sinks](https://vector.dev/docs/reference/configuration/sinks/)
 
 - `Vector` is highly configurable and can be tailored to fit various logging needs. You can combine multiple sources, transforms, and sinks to create a comprehensive logging pipeline that suits your infrastructure. `Vector` can be combine with multiple `Log Agents` to collect logs from different servers and send them to a centralized logging system like `Elasticsearch`, `Loki`, `Splunk`, etc. That make `vector` become a powerful and flexible solution for log management in modern IT environments.
+
+# Configuration Vector to collect logs from file and send to Elasticsearch
+
+- Configure `Vector` to collect logs from a specific file and send them to `Elasticsearch` for storage and analysis. Below is an example configuration that demonstrates how to achieve this.
+- [`/etc/vector/vector.yml`](./vector.yml), and [`explain`](./TUTORIAL_CONFIGURE_VECTOR.md) the configuration file.
