@@ -50,3 +50,41 @@
 
 > [!Notice]
 > Logging stacks can be complex to set up and manage, so it's essential to choose the right tools based on your specific requirements and expertise. Many people use `Docker` to install infrastructure logging stacks, but it's `not recommended` for production environments. You need to install directly on the host system for better performance and reliability.
+
+## Setting up infrastructure
+
+- Set `timezone` to local timezone or what timezone you want on all servers to ensure consistent timestamps in logs.
+
+```bash
+sudo timedatectl set-timezone Asia/Ho_Chi_Minh
+```
+
+- Install [`Elasticsearch`](https://www.elastic.co/docs/deploy-manage/deploy/self-managed/install-elasticsearch-from-archive-on-linux-macos) for log storage and search, `Kibana` to visualization logs from project.
+- Custom configuration for `Elasticsearch` in `/etc/elasticsearch/elasticsearch.yml`:
+
+```yaml
+cluster.name: elasticsearch-cluster
+network.host: 0.0.0.0
+http.port: 9200
+xpack.security.enabled: true
+xpack.monitoring.collection.enabled: true
+```
+
+- Custom configuration `JVM Options` for `Elasticsearch` in `/etc/elasticsearch/jvm.options`:
+
+```properties
+-Xms4g
+-Xmx4g
+```
+
+- Change password for `elastic` user:
+
+```bash
+sudo /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -i
+```
+
+- Testing `Elasticsearch`:
+
+```bash
+curl --cacert /etc/elasticsearch/certs/http_ca.crt -u elastic:KHFDPeU6 https://localhost:9200
+```
