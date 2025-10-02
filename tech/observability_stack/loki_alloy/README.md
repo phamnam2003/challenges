@@ -74,6 +74,8 @@ grafana:
 
 ### Migrate to Alloy
 
+#### Migrate from Prometheus to Alloy
+
 - [Migrate from Prometheus to Alloy](https://grafana.com/docs/alloy/latest/set-up/migrate/from-prometheus/#migrate-from-prometheus-to-grafana-alloy)
   - Migrate your existing Prometheus setup to Grafana Alloy with minimal downtime and effort.
   - Components used in this topic:
@@ -138,5 +140,58 @@ prometheus.remote_write "default" {
       max_samples_per_send = 500
     }
   }
+}
+```
+
+#### Migrate Promtail to Alloy
+
+- [Migrate Promtail to Alloy](https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/#migrate-promtail-to-grafana-alloy)
+  - Migrate your existing `Promtail` setup to `Grafana Alloy` with minimal downtime and effort.
+  - Components used in this topic:
+    - [local.file.match](https://grafana.com/docs/alloy/latest/reference/components/local/local.file_match/)
+    - [loki.source.file](https://grafana.com/docs/alloy/latest/reference/components/loki/loki.source.file/)
+    - [loki.write](https://grafana.com/docs/alloy/latest/reference/components/loki/loki.write/)
+  - [Convert a Promtail configuration](https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/#convert-a-promtail-configuration)
+
+  ```bash
+  alloy convert --source-format=promtail --output=<OUTPUT_CONFIG_PATH> <INPUT_CONFIG_PATH>
+  ```
+
+Example:
+
+```yaml
+clients:
+  - url: http://localhost/loki/api/v1/push
+scrape_configs:
+  - job_name: example
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          __path__: /var/log/*.log
+```
+
+```bash
+alloy convert --source-format=promtail --output=<OUTPUT_CONFIG_PATH> <INPUT_CONFIG_PATH>
+```
+
+```alloy
+local.file_match "example" {
+  path_targets = [{
+    __address__ = "localhost",
+    __path__    = "/var/log/*.log",
+  }]
+}
+
+loki.source.file "example" {
+  targets    = local.file_match.example.targets
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://localhost/loki/api/v1/push"
+  }
+  external_labels = {}
 }
 ```
