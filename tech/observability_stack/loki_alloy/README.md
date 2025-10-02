@@ -21,3 +21,36 @@ docker-compose up -d
 ## View your logs in Grafana
 
 - [Docs](https://grafana.com/docs/loki/latest/get-started/quick-start/quick-start/#view-your-logs-in-grafana)
+
+## Loki data source in Grafana
+
+- In this example, the Loki data source is already configured in Grafana. This can be seen within the `docker-compose.yaml` file:
+
+```yaml
+grafana:
+  image: grafana/grafana:latest
+  environment:
+    - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    - GF_AUTH_ANONYMOUS_ENABLED=true
+    - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+  depends_on:
+    - gateway
+  entrypoint:
+    - sh
+    - -euc
+    - |
+      mkdir -p /etc/grafana/provisioning/datasources
+      cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+      apiVersion: 1
+      datasources:
+        - name: Loki
+          type: loki
+          access: proxy
+          url: http://gateway:3100
+          jsonData:
+            httpHeaderName1: "X-Scope-OrgID"
+          secureJsonData:
+            httpHeaderValue1: "tenant1"
+      EOF
+      /run.sh
+```
