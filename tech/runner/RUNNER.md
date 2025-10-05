@@ -66,3 +66,12 @@ jobs:
 ```
 
 - [Default Variables](https://docs.github.com/en/actions/reference/workflows-and-actions/variables)
+- Secret Variables:
+  - `Secret variables` are encrypted environment variables created in a repository and can only be used by GitHub Actions. You can create secrets in a repository, organization, or environment. Secrets are not passed to workflows that are triggered by a pull request from a forked repository.
+  - You can create secrets in the `Settings` tab of a repository, organization, or environment. Secrets created in a repository are only available to that repository. Secrets created in an organization are available to all repositories in the organization. Secrets created in an environment are only available to workflows that reference the environment.
+
+```yaml
+steps:
+  - name: Use secret variable
+    run: echo ${{ secrets.MY_SECRET }}
+```
