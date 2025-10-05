@@ -34,3 +34,33 @@
 ### Runners
 
 - A `runner` is a **server** that runs your `workflows` when they're triggered. Each `runner` can run a single job at a time. GitHub provides *Ubuntu Linux*, *Microsoft Windows*, and *macOS* runners to run your workflows. Each workflow run executes in a fresh, newly-provisioned virtual machine.
+
+## Concepts
+
+### Variables
+
+- `Variables` provide a way to store and reuse non-sensitive configuration information. You can store any configuration data such as `compiler flags`, `usernames`, or `server names` as variables. Variables are `interpolated` on the runner machine that runs your `workflow`. Commands that run in actions or workflow steps can *create*, *read*, and *modify variables*.
+
+```yaml
+name: Custom Variables
+on: push
+
+env:
+  GLOBAL_VAR: "I am a global variable"
+
+jobs:
+  set_env:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set a job-level variable
+        run: echo "JOB_VAR=I am a job variable" >> $GITHUB_ENV
+
+      - name: Use the variables
+        run: |
+          echo $GLOBAL_VAR
+          echo $JOB_VAR
+      - name: "Assigning output to a variable"
+        run: echo "$CHANNEL_NAME"
+        env:
+          CHNANNEL_NAME: "stable"
+```
