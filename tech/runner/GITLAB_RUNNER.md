@@ -50,3 +50,6 @@ sudo gitlab-runner run
 > You can create gitlab-runner for self-hosted gitlab instance or gitlab.com. Often in companies, self-hosted gitlab instance is used
 
 - After this step, the runner should be registered and ready to pick up jobs from your `GitLab` instance. This time, you can begin configuring your `.gitlab-ci.yml` file to define the CI/CD pipeline that the runner will execute.
+
+> [!Caution]
+> Check the runner status in `GitLab` under `Settings` > `CI/CD` > `Runners`. Ensure that the runner is active and properly configured to pick up jobs. Recommendation is check to box *Indicates whether this runner can pick jobs without tags*, and remove checkbox *When a runner is locked, it cannot be assigned to other projects*
