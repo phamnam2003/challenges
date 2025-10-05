@@ -64,3 +64,5 @@ jobs:
         env:
           CHNANNEL_NAME: "stable"
 ```
+
+- [Default Variables](https://docs.github.com/en/actions/reference/workflows-and-actions/variables)
