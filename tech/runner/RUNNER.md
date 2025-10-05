@@ -18,8 +18,19 @@
 
 - An `event` is a *specific activity* in a repository that triggers a **workflow** run. For example, an activity can originate from GitHub when someone creates a pull request, opens an issue, or pushes a commit to a repository. You can also trigger a workflow to run on a [schedule](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule), by [posting to a REST API](https://docs.github.com/en/rest/repos/repos#create-a-repository-dispatch-event), or manually.
 
-## Environment Variables
+### Jobs
 
--
+- A `job` is *a set of steps* in a `workflow` that is executed on the same `runner`. Each step is either a shell script that will be executed, or an `action` that will be run. Steps are executed in order and are dependent on each other. Since each step is executed on the same `runner`, you can share data from one step to another. For example, you can have a step that builds your application followed by a step that tests the application that was built.
+- You can configure a job's dependencies with other jobs; by default, jobs have no dependencies and run in parallel. When a job takes a dependency on another job, it waits for the dependent job to complete before running.
 
-## Github Runner
+### Actions
+
+- An `action` is a *pre-defined*, *reusable* set of jobs or code that *performs specific tasks* within a `workflow`, reducing the amount of repetitive code you write in your workflow files. Actions can perform tasks such as:
+  - Pulling your Git repository from GitHub
+  - Setting up the correct `toolchain` for your build environment
+  - Setting up authentication to your `cloud provider`
+- You can write your own actions, or you can find actions to use in your workflows in the GitHub Marketplace.
+
+### Runners
+
+- A `runner` is a **server** that runs your `workflows` when they're triggered. Each `runner` can run a single job at a time. GitHub provides *Ubuntu Linux*, *Microsoft Windows*, and *macOS* runners to run your workflows. Each workflow run executes in a fresh, newly-provisioned virtual machine.
