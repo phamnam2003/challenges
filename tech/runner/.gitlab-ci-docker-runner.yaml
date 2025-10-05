@@ -1,0 +1,43 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+  IMAGE_NAME: yourname/myapp
+  IMAGE_TAG: latest
+
+services:
+  - docker:dind
+
+# --- BUILD & PUSH TO DOCKER HUB ---
+build:
+  stage: build
+  image: docker:25.0
+  script:
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    - docker build -t $IMAGE_NAME:$IMAGE_TAG .
+    - docker push $IMAGE_NAME:$IMAGE_TAG
+  only:
+    - main
+
+# --- DEPLOY TO SERVER ---
+deploy:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+  script:
+    - ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST "
+      docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD &&
+      docker pull $IMAGE_NAME:$IMAGE_TAG &&
+      docker stop myapp || true &&
+      docker rm myapp || true &&
+      docker run -d --name myapp -p 8080:8080 $IMAGE_NAME:$IMAGE_TAG
+      "
+  only:
+    - main

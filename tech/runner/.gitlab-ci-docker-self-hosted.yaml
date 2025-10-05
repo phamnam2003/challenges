@@ -1,0 +1,44 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  IMAGE_NAME: yourname/myapp
+  IMAGE_TAG: latest
+
+# --- BUILD & PUSH TO DOCKER HUB ---
+build:
+  stage: build
+  tags:
+    - docker # tag runner (phải khớp với runner self-hosted có Docker)
+  script:
+    - echo "🔑 Logging in to Docker Hub..."
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    - echo "🏗️ Building Docker image..."
+    - docker build -t $IMAGE_NAME:$IMAGE_TAG .
+    - echo "📤 Pushing image to Docker Hub..."
+    - docker push $IMAGE_NAME:$IMAGE_TAG
+  only:
+    - main
+
+# --- DEPLOY TO SERVER ---
+deploy:
+  stage: deploy
+  tags:
+    - docker
+  before_script:
+    - apk add --no-cache openssh-client || true
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+  script:
+    - echo "🚀 Deploying to remote server..."
+    - ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST "
+      echo '$DOCKER_PASSWORD' | docker login -u '$DOCKER_USERNAME' --password-stdin &&
+      docker pull $IMAGE_NAME:$IMAGE_TAG &&
+      docker stop myapp || true &&
+      docker rm myapp || true &&
+      docker run -d --name myapp -p 8080:8080 $IMAGE_NAME:$IMAGE_TAG
+      "
+  only:
+    - main
