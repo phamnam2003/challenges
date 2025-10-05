@@ -48,3 +48,5 @@ sudo gitlab-runner run
 > [!Note]
 > You can change the executor type during registration. Common options include `shell`, `docker`, and `kubernetes`. Choose the one that best fits your infrastructure and job requirements.
 > You can create gitlab-runner for self-hosted gitlab instance or gitlab.com. Often in companies, self-hosted gitlab instance is used
+
+- After this step, the runner should be registered and ready to pick up jobs from your `GitLab` instance. This time, you can begin configuring your `.gitlab-ci.yml` file to define the CI/CD pipeline that the runner will execute.
