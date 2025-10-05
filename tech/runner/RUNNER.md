@@ -75,3 +75,24 @@ steps:
   - name: Use secret variable
     run: echo ${{ secrets.MY_SECRET }}
 ```
+
+### Decrypt and Encrypt files
+
+- To use secrets that are larger than `64KB` in your workflow, you can use the `actions/checkout` action to check out your repository, and then use the `gpg` command to decrypt the file. You can then use the file in your workflow, and when you're done, you can use the `gpg` command to encrypt the file again.
+
+### Contexts
+
+- `Contexts` are a way to access information about workflow runs, variables, runner environments, jobs, and steps. Each context is an object that contains properties, which can be strings or other objects.
+
+```yaml
+# ${{ <context> }}
+
+name: CI
+on: push
+jobs:
+  prod-check:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Deploying to production server on branch $GITHUB_REF"
+```
