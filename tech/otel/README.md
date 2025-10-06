@@ -88,3 +88,11 @@ of [telemetry data](https://opentelemetry.io/docs/concepts/signals/) such as [tr
 
 - `OpenTelemetry` supports various methods of monitoring *Function-as-a-Service* provided by different cloud vendors. The `OpenTelemetry` community currently provides pre-built Lambda layers able to auto-instrument your application as well as the option of a standalone Collector Lambda layer that can be used when instrumenting applications manually or automatically.
 - For more information, see [Functions as a Service](https://opentelemetry.io/docs/platforms/faas/).
+
+# Installation
+
+- Installing `OpenTelemetry` is a *streamlined process* designed to work across various *programming languages* and *environments*.
+- The core setup typically involves integrating a few key components into your application.
+  - First, you need to install the specific **`OpenTelemetry SDK`** for your *programming language*, such as *Golang*, *Java*, *Python*, or *JS*. This is usually done by adding the appropriate package or dependency to your project using a manager like Maven, npm, or Pip.
+  - Next, you will *configure* an exporter to send the collected telemetry `data—traces`, `metrics`, and `logs—to` a backend analysis tool like `Jaeger`, `Prometheus`, or a commercial vendor. For a quick start, many languages offer an auto-instrumentation agent that can capture data from popular libraries and frameworks without requiring code changes.
+  - The final step often involves initializing the SDK and potentially configuring a collector to process and export the data. This modular approach ensures you can adopt `OpenTelemetry` incrementally, starting with basic instrumentation and scaling up as needed.
