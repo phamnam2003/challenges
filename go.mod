@@ -7,6 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/scylladb/gocqlx/v2 v2.8.0
 	github.com/stretchr/testify v1.11.1
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
 	go.opentelemetry.io/otel v1.38.0
 	go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.14.0
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.38.0
@@ -20,6 +21,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
