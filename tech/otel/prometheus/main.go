@@ -25,10 +25,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(exporter))
-	defer provider.Shutdown(ctx)
+	metricProvider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(exporter))
+	defer metricProvider.Shutdown(ctx)
 
-	meter := provider.Meter(meterName)
+	meter := metricProvider.Meter(meterName)
 
 	go serveMetrics()
 
