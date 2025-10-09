@@ -369,3 +369,19 @@ For more information regarding [SpanKind](https://opentelemetry.io/docs/specs/ot
 
 - To make the most use of this log, parse both the JSON and the ELF-related pieces into a shared format to make analysis on an observability backend easier. The `filelogreceiver` in the `OpenTelemetry Collector` contains standardized ways to parse logs like this.
 - Structured logs are the preferred way to use logs. Because structured logs are emitted in a consistent format, they are straightforward to parse, which makes them easier to *preprocess* in an `OpenTelemetry Collector`, correlate with other data, and ultimate analyze in an Observability backend.
+
+#### Unstructured logs
+
+- `Unstructured logs` are logs that don’t follow a *consistent structure*. They may be more human-readable, and are often used in development. However, it is not preferred to use `unstructured logs` for production observability purposes, since they are much more difficult to parse and analyze at scale.
+- It is possible to store and analyze Unstructured logs in production, although you may need to do substantial work to parse or otherwise pre-process them to be machine-readable. For example, the above three logs will require a regular expression to parse their timestamps and custom parsers to consistently extract the bodies of the log message. This will typically be necessary for a logging backend to know how to sort and organize the logs by timestamp. Although it’s possible to parse unstructured logs for analysis purposes, doing this may be more work than switching to structured logging, such as via a standard logging framework in your applications.
+
+#### Semistructured logs
+
+- A `semistructured log` is a log that does use some *self-consistent patterns* to distinguish data so that it’s machine-readable, but may not use the same formatting and delimiters between data across different systems.
+- Example of a `semistructured` log:
+
+```bash
+2024-08-04T12:45:23Z level=ERROR service=user-authentication userId=12345 action=login message="Failed login attempt" error="Invalid password" ipAddress=192.168.1.1 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"
+```
+
+- Although machine-readable, `semistructured logs` may require several different parsers to allow for analysis at scale.
