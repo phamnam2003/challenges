@@ -200,3 +200,50 @@
   - Denoting when a page becomes interactive
 - A Span is best used to the first scenario because it’s an operation with a start and an end.
 - A Span Event is best used to track the second scenario because it represents a meaningful, singular point in time.
+
+### When to use span events versus span attributes
+
+- Since span events also contain attributes, the question of when to use events instead of attributes might not always have an obvious answer. To inform your decision, consider whether a specific timestamp is meaningful.
+- If the timestamp in which the operation completes is meaningful or relevant, attach the data to a span event. If the timestamp isn’t meaningful, attach the data as span attributes.
+
+### Span Links
+
+- Links exist so that you can associate one span with one or more spans, implying a causal relationship. For example, let’s say we have a distributed system where some operations are tracked by a trace.
+- In response to some of these operations, an additional operation is queued to be executed, but its execution is asynchronous. We can track this subsequent operation with a trace as well.
+- We would like to associate the trace for the subsequent operations with the first trace, but we cannot predict when the subsequent operations will start. We need to associate these two traces, so we will use a span link.
+- You can link the last span from the first trace to the first span in the second trace. Now, they are causally associated with one another.
+- Links are optional but serve as a good way to associate trace spans with one another.
+- For more information see [Span Links](https://opentelemetry.io/docs/specs/otel/trace/api/#link)
+
+### Span Status
+
+- Each span has a status. The three possible values are:
+  - `Unset`: The default value. It means the span has no status.
+  - `Error`: The operation represented by the span has failed.
+  - `Ok`: The operation represented by the span has completed successfully.
+
+### Span Kinds
+
+- When a span is created, it is one of `Client`, `Server`, `Internal`, `Producer`, or `Consumer`. This span kind provides a hint to the tracing backend as to *how the trace* should be assembled. According to the `OpenTelemetry specification`, the parent of a server span is often a *remote client span*, and the child of a client span is usually a server span. Similarly, the parent of a *consumer span* is always a *producer* and the child of a *producer span is always a consumer*. If not provided, the span kind is assumed to be internal.
+
+For more information regarding [SpanKind](https://opentelemetry.io/docs/specs/otel/trace/api/#spankind)
+
+#### Client
+
+- A `client span` represents a *synchronous* outgoing remote call such as an outgoing HTTP request or database call. Note that in this context, *“synchronous”* does not refer to `async/await`, but to the fact that it is not queued for later processing.
+
+#### Server
+
+- A server span represents a synchronous incoming remote call such as an incoming HTTP request or remote procedure call.
+
+#### Internal
+
+- Internal spans represent operations which do not cross a process boundary. Things like instrumenting a function call or an Express middleware may use internal spans.
+
+#### Producer
+
+- Producer spans represent the creation of a job which may be asynchronously processed later. It may be a remote job such as one inserted into a job queue or a local job handled by an event listener.
+
+#### Consumer
+
+- Consumer spans represent the processing of a job created by a producer and may start long after the producer span has already ended.
