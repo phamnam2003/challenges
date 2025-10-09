@@ -321,3 +321,51 @@ For more information regarding [SpanKind](https://opentelemetry.io/docs/specs/ot
 ### OpenTelemetry logs for applications
 
 - In applications, `OpenTelemetry logs` are created with any logging library or built-in logging capabilities. When you add `autoinstrumentation` or activate an *SDK*, `OpenTelemetry` will automatically correlate your existing logs with any *active trace and span*, *wrapping the log body with their IDs*. In other words, `OpenTelemetry` automatically correlates your `logs` and `traces`.
+
+### Structured, unstructured, and semistructured logs
+
+- `OpenTelemetry` does not technically distinguish between structured and unstructured logs. You can use any log you have with `OpenTelemetry`. However, not all log formats are equally useful! Structured logs, in particular, are recommended for production observability because they are easy to parse and analyze at scale. The following section explains the differences between *structured, unstructured, and semistructured logs*.
+
+#### Structured logs
+
+- A structured log is a log whose textual format follows a consistent, machine-readable format. For applications, one of the most common formats is JSON:
+
+```json
+{
+  "timestamp": "2024-08-04T12:34:56.789Z",
+  "level": "INFO",
+  "service": "user-authentication",
+  "environment": "production",
+  "message": "User login successful",
+  "context": {
+    "userId": "12345",
+    "username": "johndoe",
+    "ipAddress": "192.168.1.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"
+  },
+  "transactionId": "abcd-efgh-ijkl-mnop",
+  "duration": 200,
+  "request": {
+    "method": "POST",
+    "url": "/api/v1/login",
+    "headers": {
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    "body": {
+      "username": "johndoe",
+      "password": "******"
+    }
+  },
+  "response": {
+    "statusCode": 200,
+    "body": {
+      "success": true,
+      "token": "jwt-token-here"
+    }
+  }
+}
+```
+
+- To make the most use of this log, parse both the JSON and the ELF-related pieces into a shared format to make analysis on an observability backend easier. The `filelogreceiver` in the `OpenTelemetry Collector` contains standardized ways to parse logs like this.
+- Structured logs are the preferred way to use logs. Because structured logs are emitted in a consistent format, they are straightforward to parse, which makes them easier to *preprocess* in an `OpenTelemetry Collector`, correlate with other data, and ultimate analyze in an Observability backend.
