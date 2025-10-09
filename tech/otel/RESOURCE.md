@@ -1,57 +1,29 @@
-# OpenTelemetry Resource Theory
+# Introduction
 
-## Core Concept
+- A [resource](https://opentelemetry.io/docs/specs/otel/resource/sdk/) represents the entity producing telemetry as *resource attributes*. For example, a process producing telemetry that is running in a container on Kubernetes has a process name, a pod name, a namespace, and possibly a deployment name. All four of these attributes can be included in the resource.
+- In your observability backend, you can use *resource information* to better *investigate interesting behavior*. For example, if your `trace` or `metrics` data indicate latency in your system, you can narrow it down to a specific container, pod, or Kubernetes deployment.
+- A `resource` is added to the `TracerProvider` or `MetricProvider` when they are created during initialization. This association cannot be changed later. After a `resource` is added, all `spans` and `metrics` produced from a `Tracer` or `Meter` from the provider will have the resource associated with them.
 
-A Resource defines the source of telemetry data - the immutable entity (service, host, container) that produces observability signals.
+# Semantic Attributes with SDK-provided Default Value
 
-## Fundamental Principles
+- There are attributes provided by the `OpenTelemetry SDK`. One of them is the `service.name`, which *represents the logical name* of the service. By default, `SDKs` will assign the value *unknown_service* for this value, so it is recommended to set it explicitly, either in code or via setting the environment variable `OTEL_SERVICE_NAME`.
+- Additionally, the `SDK` will also provides the following resource attributes to identify itself: `telemetry.sdk.name`, `telemetry.sdk.language` and `telemetry.sdk.version`.
 
-### Resource Identity
+# Resource Detectors
 
-- **Immutable attributes** that don't change during process lifetime
-- **Unique identification** of telemetry source
-- **Hierarchical composition** from multiple detectors
+- Most language-specific `SDKs` provide a set of resource detectors that can be used to automatically detect resource information from the environment. Common resource detectors include:
+  - [Operating System](https://opentelemetry.io/docs/specs/semconv/resource/os/)
+  - [Host](https://opentelemetry.io/docs/specs/semconv/resource/host/)
+  - [Process and Process Runtime](https://opentelemetry.io/docs/specs/semconv/resource/process/)
+  - [Container](https://opentelemetry.io/docs/specs/semconv/resource/container/)
+  - [Kubernetes](https://opentelemetry.io/docs/specs/semconv/resource/k8s/)
+  - [Cloud-Provider-Specific Attributes](https://opentelemetry.io/docs/specs/semconv/resource/#cloud-provider-specific-attributes)
+  - [and more](https://opentelemetry.io/docs/specs/semconv/resource/)
 
-### Key Attributes
+# Custom resources
 
-- **service.name**: Logical service name (required)
-- **service.instance.id**: Unique instance identifier (required)  
-- **deployment.environment**: prod/staging/dev context
-- **Infrastructure**: host, OS, container, cloud metadata
+- You can also provide your own resource attributes. You can either provide them in code or via populating the environment variable `OTEL_RESOURCE_ATTRIBUTES`. If applicable, use the semantic conventions for your resource attributes. For example, you can provide the name of your deployment environment using `deployment.environment.name`:
 
-## Architecture
-
-### Detection Layers
-
-- Service → Process → Container → Host → Cloud
-
-### Detection Methods
-
-- **Automatic**: Environment variables, platform APIs, file inspection
-- **Manual**: Explicit configuration by developers
-- **Hybrid**: Auto-detection with manual overrides
-
-## 🔧 Key Features
-
-### Composition
-
-- Multiple resource detectors merge attributes
-- Conflict resolution: manual > automatic
-- Layered context accumulation
-
-### Context Propagation
-
-- Resource attributes attached to all telemetry
-- Enables source identification across distributed systems
-- Supports aggregation and correlation
-
-## 🎯 Purpose
-
-- **Identify** where telemetry originated
-- **Contextualize** data with environmental metadata  
-- **Correlate** signals across services and infrastructure
-- **Attribute** costs and ownership
-
-## 📊 Output
-
-All telemetry data (traces, metrics, logs) carries resource context, enabling unified analysis across your observability stack.
+```bash
+env OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=production yourApp
+```
