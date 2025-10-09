@@ -419,6 +419,7 @@ For more information regarding [SpanKind](https://opentelemetry.io/docs/specs/ot
   - Named top-level fields of specific type and meaning
   - Resource and attributes fields of arbitrary value and type
 - The top-level fields are:
+
 | Field Name              | Description                                      |
 |-------------------------|--------------------------------------------------|
 | **Timestamp**           | Time when the event occurred.                    |
@@ -432,4 +433,5 @@ For more information regarding [SpanKind](https://opentelemetry.io/docs/specs/ot
 | **Resource**            | Describes the source of the log.                 |
 | **InstrumentationScope**| Describes the scope that emitted the log.        |
 | **Attributes**          | Additional information about the event.          |
+
 - For more details on log records and log fields, see [Logs Data Model](https://opentelemetry.io/docs/specs/otel/logs/data-model/).
