@@ -13,7 +13,7 @@
 
 ## Traces
 
-## What is Traces
+### What is Traces
 
 - The path of a request through your application.
 - **Traces** give us the big picture of what happens when a request is made to an application. Whether your application is a monolith with a single database or a sophisticated mesh of services, traces are essential to understanding the full “path” a request takes in your application.
@@ -110,4 +110,27 @@
 - This span represents the *third operation* in this trace and, like the previous one, it’s *a child* of the `hello` span. That also makes it a sibling of the `hello-greetings` span.
 - These three blocks of `JSON` all share the same trace_id, and the parent_id field represents a hierarchy. That makes it a `Trace`!
 - Another thing you’ll note is that each `Span` looks like a *structured log*. That’s because it kind of is! One way to think of `Traces` is that they’re a collection of structured logs with *context*, *correlation*, *hierarchy*, and *more baked in*. However, these “structured logs” can come from different *processes*, *services*, *VMs*, *data centers*, and so on. This is what allows tracing to represent an end-to-end view of any system.
-- More information about `Traces` can be found in the [OpenTelemetry Traces Concept](https://opentelemetry.io/docs/concepts/signals/traces/).
+
+### Trace Providers
+
+- A Tracer Provider (sometimes called `TracerProvider`) is a *factory for Tracers*. In most applications, a Tracer Provider is initialized once and `its lifecycle` matches the *application’s lifecycle*. `Tracer Provider` initialization also includes `Resource` and `Exporter` initialization. It is typically the first step in tracing with `OpenTelemetry`. In some language `SDKs`, a global `Tracer Provider` is already initialized for you.
+
+### Tracer
+
+- `Trace Exporters` send *traces* to a *consumer*. This *consumer* can be standard output for debugging and development-time, the `OpenTelemetry Collector`, or any open source or vendor backend of your choice.
+
+### Context Propagation
+
+- `Context Propagation` is the core concept that enables `Distributed Tracing`. With `Context Propagation`, `Spans` can be *correlated* with each other and *assembled into a trace*, regardless of where Spans are generated. To learn more about this topic, see the concept page on [Context Propagation](https://opentelemetry.io/docs/concepts/context-propagation).
+
+### Spans
+
+- A **span** represents a *unit of work or operation*. `Spans` are the building *blocks of Traces*. In `OpenTelemetry`, they include the following information:
+  - Name
+  - Parent span ID (empty for root spans)
+  - Start and End Timestamps
+  - [Span Context](https://opentelemetry.io/docs/concepts/signals/traces/#span-context)
+  - [Attributes](https://opentelemetry.io/docs/concepts/signals/traces/#attributes)
+  - [Span Events](https://opentelemetry.io/docs/concepts/signals/traces/#span-events)
+  - [Span Links](https://opentelemetry.io/docs/concepts/signals/traces/#span-links)
+  - [Span Status](https://opentelemetry.io/docs/concepts/signals/traces/#span-status)
