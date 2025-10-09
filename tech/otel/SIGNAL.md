@@ -435,3 +435,13 @@ For more information regarding [SpanKind](https://opentelemetry.io/docs/specs/ot
 | **Attributes**          | Additional information about the event.          |
 
 - For more details on log records and log fields, see [Logs Data Model](https://opentelemetry.io/docs/specs/otel/logs/data-model/).
+
+## Baggage
+
+- Contextual information that is passed between signals.
+- In `OpenTelemetry`, *Baggage* is contextual information that resides next to context. *Baggage* is a key-value store, which means it lets you propagate any data you like alongside context.
+- `Baggage` means you can pass data across services and processes, making it available to add to `traces`, `metrics`, or `logs` in those services.
+- For example, imagine you have a `clientId` at the start of a request, but you’d like for that ID to be available on all spans in a `trace`, some `metrics` in another service, and some logs along the way. Because the trace may span multiple services, you need some way to propagate that data without copying the `clientId` across many places in your codebase.
+- By using [Context Propagation](https://opentelemetry.io/docs/concepts/signals/traces/#context-propagation) to pass baggage across these services, the `clientId` is available to add to any additional `spans`, `metrics`, or `logs`. Additionally, instrumentations *automatically propagate baggage* for you.
+
+### What should OTel Baggage be used for?
