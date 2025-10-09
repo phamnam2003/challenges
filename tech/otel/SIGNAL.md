@@ -247,3 +247,38 @@ For more information regarding [SpanKind](https://opentelemetry.io/docs/specs/ot
 #### Consumer
 
 - Consumer spans represent the processing of a job created by a producer and may start long after the producer span has already ended.
+
+## Metrics
+
+- A measurement captured at runtime.
+- A `metric` is a *measurement* of a service *captured at runtime*. The *moment of capturing* a measurement is known as a *metric event*, which consists not only of the measurement itself, but also the time at which it was captured and *associated metadata*.
+- Application and request metrics are important indicators of *availability* and *performance*. Custom metrics can provide insights into how availability indicators impact user experience or the business. Collected data can be used to alert of an outage or trigger scheduling decisions to scale up a deployment automatically upon high demand.
+
+### Meter Provider
+
+- A *Meter Provider* (sometimes called `MeterProvider`) is a factory for `Meters`. In most applications, a `Meter Provider` is initialized once and its lifecycle matches the application’s lifecycle. Meter Provider initialization also includes `Resource` and `Exporter` initialization. It is typically the first step in metering with `OpenTelemetry`. In some language `SDKs`, a global *Meter Provider* is already initialized for you.
+
+### Meter
+
+- A `Meter` creates [metric instruments](https://opentelemetry.io/docs/concepts/signals/metrics/#metric-instruments), capturing measurements about a service at runtime. Meters are created from `Meter Providers`.
+
+### Metric Exporter
+
+- `Metric Exporters` send metric data to a consumer. This consumer can be standard output for debugging during development, the `OpenTelemetry Collector`, or any open source or vendor backend of your choice.
+
+### Metric Instruments
+
+- In `OpenTelemetry` measurements are captured by **metric instruments**. A metric instrument is defined by:
+  - Name
+  - Kind
+  - Unit (optional)
+  - Description (optional)
+- The name, unit, and description are chosen by the developer or defined via semantic conventions for common ones like request and process metrics.
+- The instrument kind is one of the following:
+  - **Counter**: A value that accumulates over time – you can think of this like an odometer on a car; it only ever goes up.
+  - **Asynchronous Counter**: Same as the Counter, but is collected once for each export. Could be used if you don’t have access to the continuous increments, but only to the aggregated value.
+  - **UpDownCounter**: A value that accumulates over time, but can also go down again. An example could be a queue length, it will increase and decrease with the number of work items in the queue.
+  - **Asynchronous UpDownCounter**: Same as the `UpDownCounter`, but is collected once for each export. Could be used if you don’t have access to the continuous changes, but only to the aggregated value (e.g., current queue size).
+  - **Gauge**: Measures a current value at the time it is read. An example would be the fuel gauge in a vehicle. Gauges are synchronous.
+  - **Asynchronous Gauge**: Same as the `Gauge`, but is collected once for each export. Could be used if you don’t have access to the continuous changes, but only to the aggregated value.
+  - **Histogram**: A client-side aggregation of values, such as request latencies. A histogram is a good choice if you are interested in value statistics. For example: How many requests take fewer than 1s?
