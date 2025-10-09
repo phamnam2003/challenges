@@ -282,3 +282,19 @@ For more information regarding [SpanKind](https://opentelemetry.io/docs/specs/ot
   - **Gauge**: Measures a current value at the time it is read. An example would be the fuel gauge in a vehicle. Gauges are synchronous.
   - **Asynchronous Gauge**: Same as the `Gauge`, but is collected once for each export. Could be used if you don’t have access to the continuous changes, but only to the aggregated value.
   - **Histogram**: A client-side aggregation of values, such as request latencies. A histogram is a good choice if you are interested in value statistics. For example: How many requests take fewer than 1s?
+
+### Aggregation
+
+- In addition to the *metric instruments*, the concept of **aggregations** is an important one to understand. An aggregation is a technique whereby a large number of measurements are combined into either exact or estimated statistics about metric events that took place during a time window. The `OTLP protocol` transports such aggregated metrics. The `OpenTelemetry API` provides a default *aggregation* for each instrument which can be overridden using the `Views`. The `OpenTelemetry` project aims to provide default aggregations that are supported by visualizers and telemetry backends.
+- Unlike [request tracing](https://opentelemetry.io/docs/concepts/signals/traces/), which is intended to capture request lifecycles and provide context to the individual pieces of a request, metrics are intended to provide statistical information in aggregate. Some examples of use cases for metrics include:
+  - Reporting the total number of bytes read by a service, per protocol type.
+  - Reporting the total number of bytes read and the bytes per request.
+  - Reporting the duration of a system call.
+  - Reporting request sizes in order to determine a trend.
+  - Reporting CPU or memory usage of a process.
+  - Reporting average balance values from an account.
+  - Reporting current active requests being handled.
+
+### Views
+
+- A view provides SDK users with the flexibility to customize the metrics output by the SDK. You can customize which metric instruments are to be processed or ignored. You can also customize aggregation and what attributes you want to report on metrics.
