@@ -385,3 +385,51 @@ For more information regarding [SpanKind](https://opentelemetry.io/docs/specs/ot
 ```
 
 - Although machine-readable, `semistructured logs` may require several different parsers to allow for analysis at scale.
+
+### OpenTelemetry logging components
+
+- The following lists of concepts and components power OpenTelemetry’s logging support.
+
+#### Log Appender / Bridge
+
+- As an application developer, the `Logs Bridge API` should not be called by you directly, as it is provided for logging library authors to build log appenders / bridges. Instead, you just use your preferred logging library and configure it to use a log appender (or log bridge) that is able to emit logs into an `OpenTelemetry LogRecordExporter`.
+- `OpenTelemetry` language `SDKs` offer this functionality.
+
+##### Logger Provider
+
+> [!Note]
+> Part of the **Logs Bridge API** and should only be used if you are the author of a logging library.
+
+- A `Logger Provider` (sometimes called `LoggerProvider`) is a factory for *Loggers*. In most cases, the `Logger Provider` is initialized once and its lifecycle matches the application’s lifecycle. `Logger Provider` initialization also includes `Resource` and `Exporter` initialization.
+
+#### Logger
+
+> [!Note]
+> Part of the Logs Bridge API and should only be used if you are the author of a logging library.
+
+- A Logger creates log records. Loggers are created from `Log Providers`.
+
+#### Log Record Exporter
+
+- `Log Record Exporters` send log records to a *consumer*. This *consumer* can be standard output for debugging and development-time, the `OpenTelemetry Collector`, or any open source or vendor backend of your choice.
+
+#### Log Record
+
+- A log record represents the recording of an event. In `OpenTelemetry` a log record contains two kinds of fields:
+  - Named top-level fields of specific type and meaning
+  - Resource and attributes fields of arbitrary value and type
+- The top-level fields are:
+| Field Name              | Description                                      |
+|-------------------------|--------------------------------------------------|
+| **Timestamp**           | Time when the event occurred.                    |
+| **ObservedTimestamp**   | Time when the event was observed.                |
+| **TraceId**             | Request trace ID.                                |
+| **SpanId**              | Request span ID.                                 |
+| **TraceFlags**          | W3C trace flag.                                  |
+| **SeverityText**        | The severity text (also known as log level).     |
+| **SeverityNumber**      | Numerical value of the severity.                 |
+| **Body**                | The body of the log record.                      |
+| **Resource**            | Describes the source of the log.                 |
+| **InstrumentationScope**| Describes the scope that emitted the log.        |
+| **Attributes**          | Additional information about the event.          |
+- For more details on log records and log fields, see [Logs Data Model](https://opentelemetry.io/docs/specs/otel/logs/data-model/).
