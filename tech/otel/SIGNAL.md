@@ -172,3 +172,31 @@
   ]
 }
 ```
+
+### Span Context
+
+- Span context is an *immutable object* on every span that contains the following:
+  - The Trace ID representing the trace that the span is a part of
+  - The span’s Span ID
+  - Trace Flags, a binary encoding containing information about the trace
+  - Trace State, a list of key-value pairs that can carry vendor-specific trace information
+- Span context is the part of a span that is serialized and propagated alongside [Distributed Context](https://opentelemetry.io/docs/concepts/signals/traces/#context-propagation) and [Baggage](https://opentelemetry.io/docs/concepts/signals/baggage).
+- Because Span Context contains the Trace ID, it is used when creating [Span Links](https://opentelemetry.io/docs/concepts/signals/traces/#span-links).
+
+### Attributes
+
+- Attributes are key-value pairs that contain metadata that you can use to annotate a Span to carry information about the operation it is tracking.
+- You can *add attributes* to *spans* during or after span creation. Prefer adding attributes at span creation to make the attributes available to SDK sampling. If you have to add a value after span creation, update the span with the value.
+- Attributes have the following rules that each language SDK implements:
+  - Keys must be non-null string values
+  - Values must be a non-null string, boolean, floating point value, integer, or an array of these values
+- Additionally, there are `Semantic Attributes`, which are known naming conventions for metadata that is typically present in common operations. It’s helpful to use semantic attribute naming wherever possible so that common kinds of metadata are standardized across systems.
+
+### Span Events
+
+- A `Span Event` can be thought of as a structured log message (or annotation) on a `Span`, typically used to denote a meaningful, singular point in time during the Span’s duration.
+- For example, consider two scenarios in a web browser:
+  - Tracking a page load
+  - Denoting when a page becomes interactive
+- A Span is best used to the first scenario because it’s an operation with a start and an end.
+- A Span Event is best used to track the second scenario because it represents a meaningful, singular point in time.
