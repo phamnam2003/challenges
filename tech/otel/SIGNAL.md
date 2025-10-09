@@ -298,3 +298,26 @@ For more information regarding [SpanKind](https://opentelemetry.io/docs/specs/ot
 ### Views
 
 - A view provides SDK users with the flexibility to customize the metrics output by the SDK. You can customize which metric instruments are to be processed or ignored. You can also customize aggregation and what attributes you want to report on metrics.
+
+## Logs
+
+- A recording of an event.
+- A **log** is a `timestamped` text record, either structured (recommended) or unstructured, with optional metadata. Of all telemetry signals, `logs` have the *biggest legacy*. Most programming languages have built-in logging capabilities or well-known, widely used logging libraries.
+
+### OpenTelemetry logs
+
+- `OpenTelemetry` does not define a bespoke *API or SDK* to create logs. Instead, `OpenTelemetry logs` are the existing logs you already have from a logging framework or infrastructure component. `OpenTelemetry SDKs` and autoinstrumentation utilize several components to automatically correlate logs with traces.
+- `OpenTelemetry’s` support for *logs* is designed to be fully compatible with what you already have, providing capabilities to wrap those logs with additional context and a common toolkit to parse and manipulate logs into a common format across many different sources.
+
+### OpenTelemetry logs in the OpenTelemetry Collector
+
+- The [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) provides several tools to work with logs:
+  - Several receivers which parse logs from specific, known sources of log data.
+  - The `filelogreceiver`, which reads logs from any file and provides features to parse them from different formats or use a regular expression.
+  - Processors like the `transformprocessor` which lets you parse nested data, flatten nested structures, *add/remove/update* values, and more.
+  - `Exporters` that let you emit log data in a *non-OpenTelemetry format*.
+- The first step in adopting `OpenTelemetry` frequently involves deploying a Collector as a general-purposes logging agent.
+
+### OpenTelemetry logs for applications
+
+- In applications, `OpenTelemetry logs` are created with any logging library or built-in logging capabilities. When you add `autoinstrumentation` or activate an *SDK*, `OpenTelemetry` will automatically correlate your existing logs with any *active trace and span*, *wrapping the log body with their IDs*. In other words, `OpenTelemetry` automatically correlates your `logs` and `traces`.
