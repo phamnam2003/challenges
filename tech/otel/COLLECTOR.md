@@ -30,3 +30,19 @@
 
 - The **Collector status** is: [mixed](https://opentelemetry.io/docs/specs/otel/document-status/#mixed), since core Collector components currently have mixed stability levels.
 - `Collector components` differ in their maturity levels. Each component has its stability documented in its README.md. You can find a list of all available Collector components in the [registry](https://opentelemetry.io/ecosystem/registry/?language=collector).
+
+# Installation
+
+- You can deploy the `OpenTelemetry Collector` on a wide variety of operating systems and architectures.
+- If you aren’t familiar with the deployment models, components, and repositories applicable to the `OpenTelemetry Collector`, first review the `Data Collection` and `Deployment Methods` page.
+
+# Deployments
+
+- Patterns you can apply to deploy the `OpenTelemetry collector`
+- The `OpenTelemetry Collector` consists of a single binary which you can use in different ways, for different use cases. This section describes deployment patterns, their use cases along with pros and cons and best practices for collector configurations for cross-environment and multi-backend deployments. For deployment security considerations, see Collector hosting best practices.
+
+## No Collector
+
+## Agent
+
+## Gateway
