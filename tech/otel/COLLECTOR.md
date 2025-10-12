@@ -43,6 +43,16 @@
 
 ## No Collector
 
+- The simplest pattern is not to use a collector at all. This pattern consists of applications instrumented with an OpenTelemetry SDK that export telemetry signals (traces, metrics, logs) directly into a backend: SDK → Backend.
+- Tradeoff:
+  - Pros:
+    - Simple to use (especially in a dev/test environment)
+    - No additional moving parts to operate (in production environments)
+  - Cons:
+    - Requires code changes if collection, processing, or ingestion changes
+    - Strong coupling between the application code and the backend
+    - There are limited number of exporters per language implementation
+
 ## Agent
 
 ## Gateway
