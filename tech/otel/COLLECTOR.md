@@ -55,4 +55,92 @@
 
 ## Agent
 
+- The agent collector deployment pattern consists of applications — [instrumented](https://opentelemetry.io/docs/languages/) with an `OpenTelemetry SDK` using `OpenTelemetry protocol (OTLP)` — or other collectors (using the `OTLP exporter`) that send telemetry signals to a collector instance running with the application or on the same host as the application (such as a *sidecar* or a *daemonset*).
+- Each client-side SDK or downstream collector is configured with a collector location: SDK → Agent Collector → Backend.
+- In the app, the SDK is configured to send OTLP data to a collector.
+- The collector is configured to send telemetry data to one or more backends
+- In the context of the app, you would set the `OTEL_METRICS_EXPORTER` to otlp (which is the default value) and configure the `OTLP exporter` with the address of your `collector`, for example (in `Bash` or `zsh` shell):
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://collector.example.com:4318
+```
+
+The collector serving at `collector.example.com:4318` would then be configured like so:
+
+```yaml
+# Traces
+receivers:
+  otlp: # the OTLP receiver the app is sending traces to
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+
+exporters:
+  otlp/jaeger: # Jaeger supports OTLP directly
+    endpoint: https://jaeger.example.com:4317
+
+service:
+  pipelines:
+    traces/dev:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/jaeger]
+
+
+# Metrics
+receivers:
+  otlp: # the OTLP receiver the app is sending metrics to
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+
+exporters:
+  prometheusremotewrite: # the PRW exporter, to ingest metrics to backend
+    endpoint: https://prw.example.com/v1/api/remote_write
+
+service:
+  pipelines:
+    metrics/prod:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheusremotewrite]
+
+
+# Logs
+receivers:
+  otlp: # the OTLP receiver the app is sending logs to
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+
+exporters:
+  file: # the File Exporter, to ingest logs to local file
+    path: ./app42_example.log
+    rotation:
+
+service:
+  pipelines:
+    logs/dev:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [file]
+```
+
+- Tradeoff:
+  - Pros:
+    - Simple to get started
+    - Clear 1:1 mapping between application and collector
+  - Cons:
+    - Scalability challenges (human and load-wise)
+    - Inflexible
+
 ## Gateway
