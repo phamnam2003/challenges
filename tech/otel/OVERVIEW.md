@@ -31,3 +31,64 @@
 # Versioning and Stability
 
 - `OpenTelemetry` values *stability* and *backwards compatibility*. Please see the [versioning and stability guide for details](https://opentelemetry.io/docs/specs/otel/versioning-and-stability/).
+
+# Tracing Signal
+
+- *A distributed trace* is a set of `events`, triggered as a result of a single logical operation, consolidated across various components of an application. A distributed trace contains events that cross process, network and security boundaries. A distributed trace may be initiated when someone presses a button to start an action on a website - in this example, the trace will represent calls made between the downstream services that handled the chain of requests initiated by this button being pressed.
+
+# Traces
+
+- **Traces** in `OpenTelemetry` are defined implicitly by their **Spans**. In particular, a **Trace** can be thought of as a directed acyclic graph (DAG) of **Spans**, where the edges between **Spans** are defined as parent/child relationship.
+- For example, the following is an example **Trace** made up of 6 **Spans**:
+
+```md
+Causal relationships between Spans in a single Trace
+        [Span A]  ←←←(the root span)
+            |
+     +------+------+
+     |             |
+ [Span B]      [Span C] ←←←(Span C is a `child` of Span A)
+     |             |
+ [Span D]      +---+-------+
+               |           |
+           [Span E]    [Span F]
+```
+
+Sometimes it’s easier to visualize Traces with a time axis as in the diagram below:
+
+```md
+Temporal relationships between Spans in a single Trace
+
+––|–––––––|–––––––|–––––––|–––––––|–––––––|–––––––|–––––––|–> time
+
+ [Span A···················································]
+   [Span B··········································]
+      [Span D······································]
+    [Span C····················································]
+         [Span E·······]        [Span F··]
+```
+
+## Spans
+
+- A **span** represents an *operation within a transaction*. Each **Span** *encapsulates* the following state:
+  - An operation name
+  - A start and finish timestamp
+  - Attributes: A list of key-value pairs.
+  - A set of zero or more **Events**, each of which is itself a tuple (timestamp, name, [Attributes](https://opentelemetry.io/docs/specs/otel/common/#attribute)). The name must be strings.
+  - Parent’s **Span** identifier.
+  - [Links](https://opentelemetry.io/docs/specs/otel/overview/#links-between-spans) to zero or more causally-related **Spans** (via the **`SpanContext`** of those related Spans).
+  - **`SpanContext`** information required to reference a Span. See below.
+
+### SpanContext
+
+### Link between Spans
+
+# Metrics Signal
+
+# Recording raw measurements
+
+# Instruments
+
+# Metrics data model and SDK
+
+## Views
