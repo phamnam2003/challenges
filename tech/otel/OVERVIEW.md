@@ -9,3 +9,14 @@
 # API
 
 - API packages consist of the cross-cutting public interfaces used for instrumentation. Any portion of an `OpenTelemetry` client which is imported into third-party libraries and application code is considered part of the API.
+
+# SDK
+
+- The `SDK` is the implementation of the API provided by the `OpenTelemetry` project. Within an application, the `SDK` is installed and managed by the [application owner](https://opentelemetry.io/docs/specs/otel/glossary/#application-owner). Note that the `SDK` includes additional public interfaces which are not considered part of the `API` package, as they are not *cross-cutting concerns*. These public interfaces are defined as [*constructors*](https://opentelemetry.io/docs/specs/otel/glossary/#constructors) and [*plugin interfaces*](https://opentelemetry.io/docs/specs/otel/glossary/#sdk-plugins). Application owners use the `SDK constructors`; [plugin authors](https://opentelemetry.io/docs/specs/otel/glossary/#plugin-author) use the `SDK plugin interfaces`. [`Instrumentation authors`](https://opentelemetry.io/docs/specs/otel/glossary/#instrumentation-author) **MUST NOT** directly reference any `SDK package` of any kind, only the `**API**`.
+
+# Semantic Conventions
+
+- The **Semantic Conventions** define the keys and values which describe commonly observed concepts, protocols, and operations used by applications.
+- Semantic Conventions are now located in their own repository: [https://github.com/open-telemetry/semantic-conventions](https://github.com/open-telemetry/semantic-conventions)
+- Both the collector and the client libraries **SHOULD** autogenerate `semantic convention` keys and enum values into constants (or language idiomatic equivalent). Generated values shouldn’t be distributed in stable packages until semantic conventions are stable. The `YAML` files *MUST* be used as the source of truth for generation. Each language implementation **SHOULD** provide language-specific support to the [code generator](https://github.com/open-telemetry/semantic-conventions/tree/main/model/go).
+- Additionally, attributes required by the specification will be listed [here](https://opentelemetry.io/docs/specs/otel/semantic-conventions/)
