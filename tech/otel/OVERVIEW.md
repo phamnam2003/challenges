@@ -144,3 +144,33 @@ Temporal relationships between Spans in a single Trace
 - [Log Data Model](https://opentelemetry.io/docs/specs/otel/logs/data-model/) defines how logs and events are understood by `OpenTelemetry`.
 
 ## Baggage Signal
+
+- In addition to trace propagation, `OpenTelemetry` provides a *simple mechanism* for propagating name/value pairs, called `Baggage`. `Baggage` is intended for indexing observability events in one service with attributes provided by a prior service in the same transaction. This helps to establish a causal relationship between these events.
+- While `Baggage` can be used to prototype other **`cross-cutting concerns`**, this mechanism is primarily intended to convey values for the `OpenTelemetry` observability systems.
+- These values can be consumed from `Baggage` and used as additional attributes for metrics, or additional context for logs and traces. Some examples:
+  - a web service can benefit from including context around what service has sent the request
+  - a SaaS provider can include context about the API user or token that is responsible for that request
+  - determining that a particular browser version is associated with a failure in an image processing service
+- For backward compatibility with `OpenTracing`, `Baggage` is propagated as `Baggage` when using the `OpenTracing bridge`. New concerns with different criteria should consider creating a new **cross-cutting concern** to cover their use-case; they may benefit from the **`W3C encoding format`** but use a new HTTP header to convey data throughout a distributed trace.
+
+# Resources
+
+- `Resource` *captures information about the entity* for which telemetry is recorded. For example, metrics exposed by a Kubernetes container can be linked to a resource that specifies the `cluster`, `namespace`, `pod`, and `container name`.
+- `Resource` may capture an entire hierarchy of entity identification. It may describe the host in the cloud and specific container or an application running in the process.
+- Note, that some of the process identification information can be associated with telemetry automatically by the `OpenTelemetry SDK`.
+
+# Context Propagation
+
+- All of `OpenTelemetry` cross-cutting concerns, such as traces and metrics, share an underlying `Context` mechanism for storing state and accessing data across the lifespan of a distributed transaction. See the [Context](https://opentelemetry.io/docs/specs/otel/context/).
+
+# Propagators
+
+- `OpenTelemetry` uses `Propagators` to serialize and deserialize **`cross-cutting concern`** values such as `Span`s (usually only the `SpanContext` portion) and `Baggage`. Different `Propagator` types define the restrictions imposed by a specific transport and bound to a data type.
+The Propagators API currently defines one `Propagator` type:
+  - `TextMapPropagator` injects values into and extracts values from carriers as text.
+
+# Collector
+
+- The `OpenTelemetry collector` is a set of components that can collect *traces, metrics and eventually other telemetry data (e.g. logs)* from processes instrumented by `OpenTelemetry` or other monitoring/tracing libraries (`Jaeger`, `Prometheus`, etc.), do *aggregation* and *smart sampling*, and *export traces and metrics* to one or more monitoring/tracing backends. The collector will allow to enrich and transform collected telemetry (e.g. add additional attributes or scrub personal information).``
+- The `OpenTelemetry collector` has two primary modes of operation: Agent (a daemon running locally with the application) and Collector (a standalone running service).
+- Read more at `OpenTelemetry Service` [Long-term Vision](https://github.com/open-telemetry/opentelemetry-collector/blob/main/docs/vision.md).
