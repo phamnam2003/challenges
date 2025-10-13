@@ -20,3 +20,14 @@
 - Semantic Conventions are now located in their own repository: [https://github.com/open-telemetry/semantic-conventions](https://github.com/open-telemetry/semantic-conventions)
 - Both the collector and the client libraries **SHOULD** autogenerate `semantic convention` keys and enum values into constants (or language idiomatic equivalent). Generated values shouldn’t be distributed in stable packages until semantic conventions are stable. The `YAML` files *MUST* be used as the source of truth for generation. Each language implementation **SHOULD** provide language-specific support to the [code generator](https://github.com/open-telemetry/semantic-conventions/tree/main/model/go).
 - Additionally, attributes required by the specification will be listed [here](https://opentelemetry.io/docs/specs/otel/semantic-conventions/)
+
+# Contrib Packages
+
+- The `OpenTelemetry` project maintains integrations with popular **OSS projects** which have been identified as important for observing modern web services. Example API integrations include instrumentation for web frameworks, database clients, and message queues. Example SDK integrations include plugins for exporting telemetry to popular analysis tools and telemetry storage systems.
+- Some plugins, such as `OTLP Exporters` and `TraceContext Propagators`, are required by the `OpenTelemetry specification`. These required plugins are included as part of the SDK.
+- *Plugins and instrumentation packages* which are optional and separate from the SDK are referred to as **Contrib** packages. **`API Contrib`** refers to packages which depend solely upon the API; **SDK Contrib** refers to packages which also depend upon the SDK.
+- The term `Contrib specifically` refers to the collection of plugins and instrumentation maintained by the `OpenTelemetry project`; it does not refer to *third-party plugins* hosted elsewhere.
+
+# Versioning and Stability
+
+- `OpenTelemetry` values *stability* and *backwards compatibility*. Please see the [versioning and stability guide for details](https://opentelemetry.io/docs/specs/otel/versioning-and-stability/).
