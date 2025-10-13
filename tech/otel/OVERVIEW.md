@@ -128,4 +128,19 @@ Temporal relationships between Spans in a single Trace
 
 ## Metrics data model and SDK
 
+- The `Metrics` data model is [specified here](https://opentelemetry.io/docs/specs/otel/metrics/data-model/) and is based on [metrics.proto](https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/metrics/v1/metrics.proto). This data model defines three semantics: An Event model used by the API, an in-flight data model used by the `SDK` and `OTLP`, and a `TimeSeries` model which denotes how exporters should interpret the in-flight model.
+- *Different exporters have different capabilities* (e.g. which data types are supported) *and different constraints* (e.g. which characters are allowed in attribute keys). `Metrics` is intended to be a superset of what’s possible, not the lowest common denominator that’s supported everywhere. All exporters consume data from `Metrics Data Model` via a `Metric Producer interface` defined in `OpenTelemetry SDK`.
+- Because of this, `Metrics` puts minimal constraints on the data (e.g. which characters are allowed in keys), and code dealing with `Metrics` should *avoid validation and sanitization* of the `Metrics` data. Instead, pass the data to the backend, rely on the backend to *perform validation*, and pass back any errors from the backend.
+- See [Metrics Data Model Specification](https://opentelemetry.io/docs/specs/otel/metrics/data-model/) for more information.
+
 ### Views
+
+- [Views](https://opentelemetry.io/docs/specs/otel/metrics/sdk/#view) are configurations that specify how the data from an `Instrument` should be *processed, aggregated, and exported*. They can be configured through the `MeterProvider`. A `View` allows the customization of metric data beyond the default collection behavior, enabling specific aggregations, transformations, and filtering of metrics.
+
+# Log Signal
+
+## Data Model
+
+- [Log Data Model](https://opentelemetry.io/docs/specs/otel/logs/data-model/) defines how logs and events are understood by `OpenTelemetry`.
+
+## Baggage Signal
