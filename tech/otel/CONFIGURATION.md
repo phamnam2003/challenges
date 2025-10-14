@@ -40,3 +40,25 @@
 - Instrumentation libraries access `ConfigProvider` during initialization. `ConfigProvider` may be passed as an argument to the instrumentation library, or the instrumentation library may access it from a central place. Thus, the **API SHOULD** provide a way to access a global default `ConfigProvider`, and set/register it.
 
 ### Config Provider operations
+
+- The `ConfigProvider` **MUST** provide the following functions:
+  - [Get instrumentation config](https://opentelemetry.io/docs/specs/otel/configuration/api/#get-instrumentation-config)
+- TODO: decide if additional operations are needed to improve API ergonomics
+
+#### Get instrumentation config
+
+- Obtain configuration relevant to instrumentation libraries.
+- **Returns**: `ConfigProperties` representing the `.instrumentation` configuration mapping node.
+- If the `.instrumentation` node is not set, get instrumentation config **MUST** return `nil`, `null`, `undefined` or another language-specific idiomatic pattern denoting empty.
+
+## Config Properties
+
+- `ConfigProperties` is a *programmatic representation* of a configuration mapping node (i.e. a `YAML` mapping node).
+- `ConfigProperties` **MUST** provide accessors for reading all properties from the mapping node it represents, including:
+  - scalars (string, boolean, double precision floating point, 64-bit integer)
+  - mappings, which SHOULD be represented as `ConfigProperties`
+  - sequences of scalars
+  - sequences of mappings, which SHOULD be represented as `ConfigProperties`
+  - the set of property keys present
+- `ConfigProperties` **SHOULD** provide access to properties in a type safe manner, based on what is idiomatic in the language.
+- `ConfigProperties` **SHOULD** allow a caller to determine if a property is present with a *null value*, *versus not set*.
