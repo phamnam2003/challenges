@@ -49,7 +49,20 @@ REQUIRED parameters:
 
 # Context Interaction
 
+- This section defines all operations within the Baggage API that interact with the [Context](https://opentelemetry.io/docs/specs/otel/context/).
+- If an implementation of this API does not operate directly on the Context, it MUST provide the following functionality to interact with a Context instance:
+  - *Extract* the `Baggage` from a `Context` instance
+  - *Insert* the `Baggage` to a `Context` instance
+- The functionality listed above is necessary because API users SHOULD NOT have access to the Context Key used by the Baggage API implementation.
+- If the language has *support* for implicitly **propagated Context** (see [here](https://opentelemetry.io/docs/specs/otel/context/#optional-global-operations)), the `API` **SHOULD** also provide the following functionality:
+  - Get the currently active `Baggage` from the implicit context. This is equivalent to getting the implicit context, then *extracting* the `Baggage` from the context.
+  - Set the currently active `Baggage` to the implicit context. This is equivalent to getting the implicit context, then inserting the `Baggage` to the context.
+- All the above functionalities operate solely on the `context API`, and they **MAY** be exposed as static methods on the baggage module, as static methods on a class inside the baggage module (it MAY be named `BaggageUtilities`), or on the *Baggage class*. This functionality **SHOULD** be fully implemented in the API when possible.
+
 ## Clear Baggage in the Context
+
+- To avoid sending any name/value pairs to an *untrusted process*, the `Baggage API` **MUST** provide a way to *remove all baggage entries* from a context.
+- This functionality can be implemented by having the user set an empty `Baggage` object/struct into the context, or by providing an `API` that takes a `Context` as input, and returns a new `Context` with **no Baggage associated**.
 
 # Propagation
 
