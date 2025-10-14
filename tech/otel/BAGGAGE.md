@@ -66,4 +66,14 @@ REQUIRED parameters:
 
 # Propagation
 
+- `Baggage` **MAY** be *propagated across process boundaries* or *across any arbitrary boundaries* (`process`, `$OTHER_BOUNDARY1`, `$OTHER_BOUNDARY2`, etc.) for various reasons.
+- The API layer or an extension package **MUST** include the following `Propagators`:
+  - A `TextMapPropagator` implementing the [W3C Baggage Specification](https://www.w3.org/TR/baggage/).
+- See [Propagators Distribution](https://opentelemetry.io/docs/specs/otel/context/api-propagators/#propagators-distribution) for how propagators are to be *distributed*.
+- See [Environment Variable Carriers](https://opentelemetry.io/docs/specs/otel/context/env-carriers/) for how *propagation* should be handled when using environment variables as a carrier mechanism between processes.
+- Note: The W3C baggage specification does not currently assign semantic meaning to the optional metadata.
+- On `extract`, the **propagator** should store all metadata as a single metadata instance per entry. On `inject`, the **propagator** should append the metadata per the W3C specification format. Refer to the API Propagators [`Operation`](https://opentelemetry.io/docs/specs/otel/context/api-propagators/#operations) section for the additional requirements these operations need to follow.
+
 # Conflict Resolution
+
+- If a new name/value pair is added and its name is the same as an existing name, than the new pair **MUST** take precedence. The value is replaced with the added value (regardless if it is locally generated or received from a remote peer).
