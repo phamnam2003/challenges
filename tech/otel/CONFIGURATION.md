@@ -23,3 +23,20 @@
 ## Other Mechanisms
 
 - Additional configuration mechanisms **SHOULD** be provided in whatever `language/format/style` is idiomatic for the language of the `SDK`. The `SDK` can include as many configuration mechanisms as appropriate.
+
+# Instrumentation Configuration API
+
+## Overview
+
+- The instrumentation configuration API is part of the [declarative configuration interface](https://opentelemetry.io/docs/specs/otel/configuration/#declarative-configuration).
+- The API allows [instrumentation libraries](https://opentelemetry.io/docs/specs/otel/glossary/#instrumentation-library) to consume configuration by reading relevant configuration during initialization. For example, an instrumentation library for an HTTP client can read the set of HTTP request and response headers to capture.
+- It consists of the following main components:
+  - [`ConfigProvider`](https://opentelemetry.io/docs/specs/otel/configuration/api/#configprovider) is the entry point of the API.
+  - [`ConfigProperties`](https://opentelemetry.io/docs/specs/otel/configuration/api/#configproperties) is a programmatic representation of a configuration mapping node.
+
+## Config Provider
+
+- `ConfigProvider` provides access to configuration properties relevant to instrumentation.
+- Instrumentation libraries access `ConfigProvider` during initialization. `ConfigProvider` may be passed as an argument to the instrumentation library, or the instrumentation library may access it from a central place. Thus, the **API SHOULD** provide a way to access a global default `ConfigProvider`, and set/register it.
+
+### Config Provider operations
