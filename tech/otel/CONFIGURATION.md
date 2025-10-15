@@ -147,6 +147,15 @@ meter_provider:
 
 ### Create
 
+- Interpret configuration model and return SDK components.
+- **Parameters**: `configuration` - An [in-memory configuration model](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#in-memory-configuration-model).
+- **Returns**: Top level SDK components:
+  - [`TracerProvider`](https://opentelemetry.io/docs/specs/otel/trace/sdk/#tracer-provider)
+  - [`MeterProvider`](https://opentelemetry.io/docs/specs/otel/metrics/sdk/#meterprovider)
+  - [`LoggerProvider`](https://opentelemetry.io/docs/specs/otel/logs/sdk/#loggerprovider)
+  - [`Propagators`](https://opentelemetry.io/docs/specs/otel/context/api-propagators/#composite-propagator)
+  - [`ConfigProvider`](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#configprovider)
+
 ### Register ComponentProvider
 
 ## Examples
