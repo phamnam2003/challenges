@@ -121,4 +121,32 @@ Interpret configuration to create a instance of a SDK extension plugin interface
 
 ## SDK Operations
 
+- SDK implementations of configuration **MUST** provide the following operations.
+- Note: Because these operations are stateless pure functions, they are not defined as part of any type, class, interface, etc. SDKs may organize them in whatever manner is idiomatic for the language.
+
+### Parse
+
+- **Parameters**:
+  - `file`: The [configuration file](https://opentelemetry.io/docs/specs/otel/configuration/data-model/#file-based-configuration-model) to parse. This **MAY** be a file path, or language specific file data structure, or a stream of a file’s content.
+  - `file_format`: The file format of the file (e.g. yaml). Implementations **MAY** accept a `file_format` parameter, or infer it from the file extension, or include file format specific overloads of parse, e.g. `parseYaml(file)`. If parse accepts `file_format`, the *API SHOULD* be structured so a user is obligated to provide it.
+- **Returns**: [configuration model](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#in-memory-configuration-model)
+- Parse **MUST** differentiate between properties that are missing and properties that are present but null. For example, consider the following snippet, noting `.meter_provider.views[0].stream.drop` is present but null:
+
+```yaml
+meter_provider:
+  views:
+    - selector:
+        name: some.metric.name
+      stream:
+        aggregation:
+          drop:
+```
+
+- As a result, the view stream should be configured with the `drop aggregation`. Note that some aggregations have additional arguments, but `drop` does not. The user **MUST** not be required to specify an empty object (i.e. `drop: {}`) in these cases.
+- When encountering a reference to a [SDK extension component](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#sdk-extension-components) which is not built in to the `SDK`, Parse **MUST** resolve corresponding configuration to a generic [`ConfigProperties`](https://opentelemetry.io/docs/specs/otel/configuration/api/#configproperties) representation as described in [Create Plugin](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#create-plugin).
+
+### Create
+
+### Register ComponentProvider
+
 ## Examples
