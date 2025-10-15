@@ -75,9 +75,49 @@
 
 ## In-Memory configuration model
 
+- `SDK`s **SHOULD** provide an in-memory representation of the [configuration model](https://opentelemetry.io/docs/specs/otel/configuration/data-model/). Whereas [`ConfigProperties`](https://opentelemetry.io/docs/specs/otel/configuration/api/#configproperties) is a schemaless representation of any mapping node, the in-memory configuration model **SHOULD** reflect the schema of the configuration model.
+- `SDK`s are encouraged to provide this in-memory representation in a manner that is idiomatic for their language. If an `SDK` needs to expose a class or interface, the name Configuration is **RECOMMENDED**.
+
 ## Config Provider
 
+- The SDK implementation of [`ConfigProvider`](https://opentelemetry.io/docs/specs/otel/configuration/api/#configprovider) **MUST** be created using a [`ConfigProperties`](https://opentelemetry.io/docs/specs/otel/configuration/api/#configproperties) representing the [`.instrumentation`](https://github.com/open-telemetry/opentelemetry-configuration/blob/670901762dd5cce1eecee423b8660e69f71ef4be/examples/kitchen-sink.yaml#L438-L439) mapping node of the [configuration model](https://opentelemetry.io/docs/specs/otel/configuration/data-model/).
+
 ## SDK extension components
+
+- The `SDK` supports a variety of extension [plugin interfaces](https://opentelemetry.io/docs/specs/otel/glossary/#sdk-plugins), allowing users and libraries to customize behaviors including the sampling, processing, and exporting of data. In general, the configuration data model defines specific types for built-in implementations of these plugin interfaces. For example, the BatchSpanProcessor type refers to the built-in Batching span processor. The schema SHOULD also support the ability to specify custom implementations of plugin interfaces defined by libraries or users.
+- For example, a custom [span exporter](https://opentelemetry.io/docs/specs/otel/trace/sdk/#span-exporter) might be configured as follows:
+
+```yaml
+tracer_provider:
+  processors:
+    - batch:
+        exporter:
+          my-exporter:
+            config-parameter: value
+```
+
+- Here we specify that the `tracer provider` has a `batch span processor` paired with a custom span exporter named my-exporter, which is configured with `config-parameter: value`. For this configuration to succeed, a `ComponentProvider` must be registered with type: `SpanExporter`, and `name: my-exporter`. When parse is called, the implementation will encounter my- exporter and translate the corresponding configuration to an equivalent `ConfigProperties` representation (i.e. `properties: {config-parameter: value}`). When create is called, the implementation will encounter my-exporter and invoke create plugin on the registered `ComponentProviderwith` the `ConfigProperties` determined during `parse`.
+- Given the inherent differences across languages, the details of extension component mechanisms are likely to vary to a greater degree than is the case with other `API`s defined by `OpenTelemetry`. This is to be expected and is acceptable so long as the implementation results in the defined behaviors.
+
+### Component Provider
+
+- A `ComponentProvider` is responsible for interpreting configuration and returning an implementation of a particular type of `SDK extension plugin interface`.
+- `ComponentProvider`s are registered with an SDK implementation of configuration via register. This **MAY** be done automatically or require manual intervention by the user based on what is possible and idiomatic in the language ecosystem. For example in Java, `ComponentProviders` might be registered automatically using the `service provider interface (SPI)` mechanism.
+- See [create](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#create), which details `ComponentProvider` usage in configuration model interpretation.
+
+#### Supported SDK extension plugins
+
+- The [configuration data model](https://opentelemetry.io/docs/specs/otel/configuration/data-model/) **SHOULD** support configuration of all SDK extension plugin interfaces. `SDK`s **SHOULD** support [registration](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#register-componentprovider) of custom implementations of SDK extension plugin interfaces via the `ComponentProvider mechanism`.
+
+#### ComponentsProvider operations
+
+- The `ComponentsProvider` **MUST** provide the following functions:
+  - [Create Plugin](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#create-plugin)
+Interpret configuration to create a instance of a SDK extension plugin interface.
+- **Parameters**: `properties` - The [`ConfigProperties`](https://opentelemetry.io/docs/specs/otel/configuration/api/#configproperties) representing the configuration specified for the component in the [configuration model](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#in-memory-configuration-model).
+- **Returns**: A configured SDK extension plugin interface implementation.
+- The plugin interface **MAY** have properties which are optional or required, and have specific requirements around type or format. The set of properties a `ComponentProvider` accepts, along with their requirement level and expected type, comprise a configuration schema. A `ComponentProvider` **SHOULD** document its configuration schema and include examples.
+- When Create Plugin is invoked, the `ComponentProvider` interprets properties and attempts to extract data according to its configuration schema. If this fails (e.g. a required property is not present, a type is mismatches, etc.), Create Plugin SHOULD return an error.
 
 ## SDK Operations
 
