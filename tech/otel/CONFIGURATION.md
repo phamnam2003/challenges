@@ -155,7 +155,3 @@ meter_provider:
   - [`LoggerProvider`](https://opentelemetry.io/docs/specs/otel/logs/sdk/#loggerprovider)
   - [`Propagators`](https://opentelemetry.io/docs/specs/otel/context/api-propagators/#composite-propagator)
   - [`ConfigProvider`](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#configprovider)
-
-### Register ComponentProvider
-
-## Examples
