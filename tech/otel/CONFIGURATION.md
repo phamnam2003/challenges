@@ -62,3 +62,23 @@
   - the set of property keys present
 - `ConfigProperties` **SHOULD** provide access to properties in a type safe manner, based on what is idiomatic in the language.
 - `ConfigProperties` **SHOULD** allow a caller to determine if a property is present with a *null value*, *versus not set*.
+
+# Configuration SDK
+
+## Overview
+
+- The `SDK` is an implementation of [`Instrumenation Config API`](https://opentelemetry.io/docs/specs/otel/configuration/api/) and other user facing declarative configuration capabilities. It consists of the following main components:
+  - [In-Memory configuration model](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#in-memory-configuration-model) is an in-memory representation of the [configuration model](https://opentelemetry.io/docs/specs/otel/configuration/data-model/).
+  - [ConfigProvider](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#configprovider) defines the `SDK` implementation of the `ConfigProvider API`.
+  - [SDK extension components](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#sdk-extension-components) defines how users and libraries extend file configuration with custom SDK extension plugin interfaces (*exporters*, *processors*, etc).
+  - [SDK operations](https://opentelemetry.io/docs/specs/otel/configuration/sdk/#sdk-operations) defines user APIs to parse configuration files and produce SDK components from their contents.
+
+## In-Memory configuration model
+
+## Config Provider
+
+## SDK extension components
+
+## SDK Operations
+
+## Examples
