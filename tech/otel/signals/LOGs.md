@@ -61,3 +61,15 @@
   - [TraceFlags](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-traceflags)
   - [EventName](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-eventname)
 - The `SDK` **MAY** provide an operation that makes a deep clone of a `ReadWriteLogRecord`. The operation can be used by *asynchronous processors* (e.g. `Batching processor`) to avoid *race conditions* on the log record that is not required to be **concurrent-safe**.
+
+## Logs Exporter - standard output
+
+- “Standard output” `LogRecord Exporter` is a `LogRecord Exporter` which outputs the logs to `stdout/console`.
+- The following wording is recommended (modify as needed):
+
+> [!Note]
+> This exporter is intended for debugging and learning purposes. It is not recommended for production use. The output format is not standardized and can change at any time.
+> If a standardized format for exporting logs to `stdout` is desired, consider using the [File Exporter](https://opentelemetry.io/docs/specs/otel/protocol/file-exporter/), if available. However, please review the status of the `File Exporter` and verify if it is stable and production-ready.
+
+- `OpenTelemetry SDK` authors **MAY** choose the best idiomatic name for their language. For example, `ConsoleExporter`, `StdoutExporter`, `StreamExporter`, etc.
+- If a language provides a mechanism to automatically configure a [LogRecordProcessor](https://opentelemetry.io/docs/specs/otel/logs/sdk/#logrecordprocessor) to pair with the associated exporter (e.g., using the [`OTEL_LOGS_EXPORTER` environment variable](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#exporter-selection)), by default the standard output exporter **SHOULD** be paired with a [simple processor](https://opentelemetry.io/docs/specs/otel/logs/sdk/#simple-processor).
