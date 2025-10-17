@@ -5,16 +5,29 @@ receivers:
       http:
 
 exporters:
-  jaeger:
-    endpoint: "jaeger:14250"
+  otlp:
+    endpoint: "jaeger:4317"
     tls:
       insecure: true
+    compression: gzip
+    sending_queue:
+      enabled: true
+      queue_size: 512
 
   logging:
     loglevel: info
 
+processors:
+  batch:
+
+extensions:
+  health_check:
+  zpages:
+
 service:
+  extensions: [health_check, zpages]
   pipelines:
     traces:
       receivers: [otlp]
-      exporters: [jaeger, logging]
+      processors: [batch]
+      exporters: [otlp, logging]
