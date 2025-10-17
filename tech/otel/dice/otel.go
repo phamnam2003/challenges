@@ -109,6 +109,7 @@ func setupOtelSDK(ctx context.Context) (func(context.Context) error, error) {
 		handleErr(err)
 		return shutdown, err
 	}
+	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
 	otel.SetMeterProvider(meterProvider)
 
 	// Set up logger provider.
