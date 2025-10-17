@@ -2,32 +2,26 @@ receivers:
   otlp:
     protocols:
       grpc:
+        endpoint: 0.0.0.0:4317
       http:
+        endpoint: 0.0.0.0:4318
 
 exporters:
-  otlp:
-    endpoint: "jaeger:4317"
+  otlp/jaeger:
+    endpoint: jaeger:4317
     tls:
       insecure: true
-    compression: gzip
-    sending_queue:
-      enabled: true
-      queue_size: 512
-
-  logging:
-    loglevel: info
 
 processors:
   batch:
 
 extensions:
   health_check:
-  zpages:
 
 service:
-  extensions: [health_check, zpages]
+  extensions: [health_check]
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp, logging]
+      exporters: [otlp/jaeger, logging]
