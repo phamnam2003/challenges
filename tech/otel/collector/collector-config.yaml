@@ -18,6 +18,11 @@ processors:
     send_batch_size: 512
     send_batch_max_size: 1024
 
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 2048
+    spike_limit_mib: 512
+
   tail_sampling:
     decision_wait: 5s
     num_traces: 50000
@@ -50,5 +55,5 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [otlp/jaeger, logging]
+      processors: [batch, memory_limiter, tail_sampling]
+      exporters: [otlp/jaeger]
