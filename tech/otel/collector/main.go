@@ -54,6 +54,7 @@ func newTraceProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
+		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(1.0))),
 	)
 	return tp, nil
 }
