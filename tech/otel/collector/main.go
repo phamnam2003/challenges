@@ -37,6 +37,8 @@ func newTraceProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 	// res: resource in opentelemetry
 	res, err := resource.New(ctx,
 		resource.WithFromEnv(),
+		resource.WithOS(),
+		resource.WithContainer(),
 		resource.WithProcess(),
 		resource.WithTelemetrySDK(),
 		resource.WithHost(),
