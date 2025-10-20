@@ -25,7 +25,7 @@ import (
 )
 
 func newTraceProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
-	conn, err := grpc.NewClient("http://localhost:4317", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("0.0.0.0:4317", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
 	}
