@@ -24,18 +24,21 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// newTraceProvider concrete implemtation trace provider, push to otel collector
 func newTraceProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
+	// this recommendation approach step with grpc connection, you can custom credentials with token (JWT, PASETO, etc.)
 	conn, err := grpc.NewClient("0.0.0.0:4317", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
 	}
 
+	// exporter to push into otel collector
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
 
-	// res: resource in opentelemetry
+	// res: resource in opentelemetry. `resource` should embeded into service telemetry data: logs, metrics, traces
 	res, err := resource.New(ctx,
 		resource.WithFromEnv(),      // Discover and provide attributes from OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME environment variables.
 		resource.WithTelemetrySDK(), // Discover and provide information about the OpenTelemetry SDK used.
@@ -48,15 +51,19 @@ func newTraceProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 			semconv.ServiceVersion("1.0.0"),
 			attribute.String("environment", "development"),
 			attribute.String("language", "go"),
+			attribute.String("author", "phamnam2003"), // custom attribute, this attribute should embeded into each query. It make other people easy to know who create this service
+			attribute.StringSlice("contributors", []string{"chatgpt", "claud.ai", "deepseek"}),
 		),
 	)
 	if err != nil {
+		// check partial resource error or schema url conflict, this error can be may happen in service.
 		if errors.Is(err, resource.ErrPartialResource) || errors.Is(err, resource.ErrSchemaURLConflict) {
 			log.Printf("warning: partial resource created: %v", err)
 		}
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
+	// merge with default resource, this make sure no missing attribute in resource
 	res, err = resource.Merge(resource.Default(), res)
 	if err != nil {
 		if errors.Is(err, resource.ErrPartialResource) || errors.Is(err, resource.ErrSchemaURLConflict) {
@@ -65,6 +72,7 @@ func newTraceProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 		return nil, fmt.Errorf("failed to merged resource: %w", err)
 	}
 
+	// create new trace provider with exporter and resource, you need configure sampler with tail sampling.
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
