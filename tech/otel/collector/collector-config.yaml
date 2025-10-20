@@ -1,3 +1,4 @@
+# TODO: Can open with SSL/TLS configure
 receivers:
   otlp:
     protocols:
@@ -11,6 +12,7 @@ exporters:
     endpoint: jaeger:4317
     tls:
       insecure: true
+    # TODO: configure metrics exporters
 
 processors:
   batch:
@@ -57,3 +59,4 @@ service:
       receivers: [otlp]
       processors: [batch, memory_limiter, tail_sampling]
       exporters: [otlp/jaeger]
+    # TODO: confiure push metrics into collector
