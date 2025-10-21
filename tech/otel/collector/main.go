@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/phamnam2003/challenges/tech/otel/collector/observer"
@@ -132,7 +129,7 @@ func main() {
 		log.Fatal("failed to setup otel sdk: ", err)
 	}
 	defer func() {
-		if err := shutdown(ctx); err != nil {
+		if err := shutdown(context.Background()); err != nil {
 			log.Fatal("failed to shutdown otel sdk: ", err)
 		}
 	}()
@@ -146,22 +143,8 @@ func main() {
 		Handler: mux,
 	}
 
-	go func() {
-		log.Println("🚀 Server started at :8080")
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("Server error: ", err)
-		}
-	}()
-
-	// Chờ tín hiệu shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	<-quit
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown: ", err)
+	log.Println("🚀 Server started at :8080")
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatal("Server error: ", err)
 	}
 }
