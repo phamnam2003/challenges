@@ -9,6 +9,7 @@ services:
       - "13133:13133" # Health check
       - "1777:1777" # pprof
       - "55679:55679" # zpages
+      - "8888:8888"
     depends_on:
       - jaeger
 
