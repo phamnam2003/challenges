@@ -25,7 +25,7 @@ import (
 )
 
 // newTraceProvider concrete implemtation trace provider, push to otel collector
-func newTraceProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
+func newTraceProvider(ctx context.Context, res *resource.Resource) (*sdktrace.TracerProvider, error) {
 	// this recommendation approach step with grpc connection, you can custom credentials with token (JWT, PASETO, etc.)
 	conn, err := grpc.NewClient("0.0.0.0:4317", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -36,31 +36,6 @@ func newTraceProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
-	}
-
-	// res: resource in opentelemetry. `resource` should embeded into service telemetry data: logs, metrics, traces
-	res, err := resource.New(ctx,
-		resource.WithFromEnv(),      // Discover and provide attributes from OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME environment variables.
-		resource.WithTelemetrySDK(), // Discover and provide information about the OpenTelemetry SDK used.
-		resource.WithProcess(),      // Discover and provide process information.
-		resource.WithOS(),           // Discover and provide OS information.
-		resource.WithContainer(),    // Discover and provide container information.
-		resource.WithHost(),         // Discover and provide host information.
-		resource.WithAttributes(
-			semconv.ServiceName("otel-http-demo"),
-			semconv.ServiceVersion("1.0.0"),
-			attribute.String("environment", "development"),
-			attribute.String("language", "go"),
-			attribute.String("author", "phamnam2003"), // custom attribute, this attribute should embeded into each query. It make other people easy to know who create this service
-			attribute.StringSlice("contributors", []string{"chatgpt", "claud.ai", "deepseek"}),
-		),
-	)
-	if err != nil {
-		// check partial resource error or schema url conflict, this error can be may happen in service.
-		if errors.Is(err, resource.ErrPartialResource) || errors.Is(err, resource.ErrSchemaURLConflict) {
-			log.Printf("warning: partial resource created: %v", err)
-		}
-		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
 	// merge with default resource, this make sure no missing attribute in resource
@@ -187,8 +162,33 @@ func complexHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	ctx := context.Background()
 
+	// res: resource in opentelemetry. `resource` should embeded into service telemetry data: logs, metrics, traces
+	res, err := resource.New(ctx,
+		resource.WithFromEnv(),      // Discover and provide attributes from OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME environment variables.
+		resource.WithTelemetrySDK(), // Discover and provide information about the OpenTelemetry SDK used.
+		resource.WithProcess(),      // Discover and provide process information.
+		resource.WithOS(),           // Discover and provide OS information.
+		resource.WithContainer(),    // Discover and provide container information.
+		resource.WithHost(),         // Discover and provide host information.
+		resource.WithAttributes(
+			semconv.ServiceName("otel-http-demo"),
+			semconv.ServiceVersion("1.0.0"),
+			attribute.String("environment", "development"),
+			attribute.String("language", "go"),
+			attribute.String("author", "phamnam2003"), // custom attribute, this attribute should embeded into each query. It make other people easy to know who create this service
+			attribute.StringSlice("contributors", []string{"chatgpt", "claud.ai", "deepseek"}),
+		),
+	)
+	if err != nil {
+		// check partial resource error or schema url conflict, this error can be may happen in service.
+		if errors.Is(err, resource.ErrPartialResource) || errors.Is(err, resource.ErrSchemaURLConflict) {
+			log.Printf("warning: partial resource created: %v", err)
+		}
+		log.Fatal("failed to create resource: ", err)
+	}
+
 	// Khởi tạo tracer provider
-	tp, err := newTraceProvider(ctx)
+	tp, err := newTraceProvider(ctx, res)
 	if err != nil {
 		log.Fatal("cannot create tracer provider", err)
 	}
