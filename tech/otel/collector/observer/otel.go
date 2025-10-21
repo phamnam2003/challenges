@@ -6,16 +6,23 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"google.golang.org/grpc"
 )
 
-// NewTraceProvider creates a new OpenTelemetry TracerProvider that exports traces
-func NewTraceProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdktrace.TracerProvider, error) {
-	// exporter to push into otel collector
+// newTraceProvider creates a new OpenTelemetry TracerProvider that exports traces
+func newTraceProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdktrace.TracerProvider, error) {
+	// trace exporter to push into otel collector
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
@@ -39,4 +46,109 @@ func NewTraceProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.
 		),
 	)
 	return tp, nil
+}
+
+// newMeterProvider creates a new OpenTelemetry MeterProvider that exports metrics
+func newMeterProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdkmetric.MeterProvider, error) {
+	// metric exporter to push into otel collector
+	meterExporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(conn))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create metric exporter: %w", err)
+	}
+
+	// create meter provider with periodic reader (exporter with interval scrape duration) and resource
+	mp := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(
+			meterExporter,
+			sdkmetric.WithInterval(10*time.Second), // export metrics every 10 seconds
+		)),
+		sdkmetric.WithResource(res),
+	)
+	return mp, nil
+}
+
+// newResource creates a new resource describing this application.
+func newResource(ctx context.Context) (*resource.Resource, error) {
+	// res: resource in opentelemetry. `resource` should embeded into service telemetry data: logs, metrics, traces
+	res, err := resource.New(ctx,
+		resource.WithFromEnv(),      // Discover and provide attributes from OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME environment variables.
+		resource.WithTelemetrySDK(), // Discover and provide information about the OpenTelemetry SDK used.
+		resource.WithProcess(),      // Discover and provide process information.
+		resource.WithOS(),           // Discover and provide OS information.
+		resource.WithContainer(),    // Discover and provide container information.
+		resource.WithHost(),         // Discover and provide host information.
+		resource.WithAttributes(
+			semconv.ServiceName("otel-http-demo"),
+			semconv.ServiceVersion("1.0.0"),
+			attribute.String("environment", "development"),
+			attribute.String("language", "go"),
+			attribute.String("author", "phamnam2003"), // custom attribute, this attribute should embeded into each query. It make other people easy to know who create this service
+			attribute.StringSlice("contributors", []string{"chatgpt", "claud.ai", "deepseek"}),
+		),
+	)
+	if err != nil {
+		// check partial resource error or schema url conflict, this error can be may happen in service.
+		if errors.Is(err, resource.ErrPartialResource) || errors.Is(err, resource.ErrSchemaURLConflict) {
+			log.Printf("warning: partial resource created: %v", err)
+		}
+		return nil, fmt.Errorf("failed to create resource: %w", err)
+	}
+
+	return res, nil
+}
+
+// newPropagator creates a composite propagator that supports W3C Trace Context and Baggage.
+func newPropagator() propagation.TextMapPropagator {
+	return propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
+}
+
+// SetupOtelSDK bootstraps the OpenTelemetry pipeline.
+// If it does not return an error, make sure to call shutdown for proper cleanup.
+func SetupOtelSDK(ctx context.Context, conn *grpc.ClientConn) (func(context.Context) error, error) {
+	var shutdownFuncs []func(context.Context) error
+	var err error
+
+	// shutdown calls cleanup functions registered via shutdownFuncs.
+	// The errors from the calls are joined
+	// Each registered cleanup will be invoked once.
+	shutdown := func(ctx context.Context) error {
+		var err error
+		for _, fn := range shutdownFuncs {
+			err = errors.Join(err, fn(ctx))
+		}
+
+		shutdownFuncs = nil
+		return err
+	}
+
+	// handleErr calls shutdown for cleanup and makes sure that all errors are returned
+	handleErr := func(inErr error) {
+		err = errors.Join(inErr, shutdown(ctx))
+	}
+
+	// Set up propagator.
+	prop := newPropagator()
+	otel.SetTextMapPropagator(prop)
+
+	res, err := newResource(ctx)
+
+	// Set up tp: trace provider.
+	tp, err := newTraceProvider(ctx, conn, res)
+	if err != nil {
+		handleErr(err)
+		return shutdown, err
+	}
+	shutdownFuncs = append(shutdownFuncs, tp.Shutdown)
+	otel.SetTracerProvider(tp)
+
+	// Set up meter provider.
+	meterProvider, err := newMeterProvider(ctx, conn, res)
+	if err != nil {
+		handleErr(err)
+		return shutdown, err
+	}
+	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
+	otel.SetMeterProvider(meterProvider)
+
+	return shutdown, err
 }
