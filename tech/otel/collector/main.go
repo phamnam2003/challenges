@@ -41,31 +41,6 @@ func newMeterProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.
 	return mp, nil
 }
 
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// 🧳 Add baggage
-	member, _ := baggage.NewMember("user.id", "12345")
-	bg, _ := baggage.New(member)
-	ctx = baggage.ContextWithBaggage(ctx, bg)
-
-	tr := otel.Tracer("example-tracer")
-	_, span := tr.Start(ctx, "handle-hello")
-	defer span.End()
-
-	span.SetAttributes(semconv.HTTPRequestMethodGet)
-	span.AddEvent("processing request")
-
-	time.Sleep(200 * time.Millisecond) // simulate work
-
-	userID := baggage.FromContext(ctx).Member("user.id").Value()
-	msg := fmt.Sprintf("Hello! Baggage user.id=%s", userID)
-	span.AddEvent("sending response")
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(msg))
-}
-
 func complexHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	tr := otel.Tracer("complex-tracer")
@@ -163,7 +138,6 @@ func main() {
 	}()
 
 	mux := http.NewServeMux()
-	mux.Handle("/hello", otelhttp.NewHandler(http.HandlerFunc(helloHandler), "HelloHandler"))
 	mux.Handle("/complex", otelhttp.NewHandler(http.HandlerFunc(complexHandler), "ComplexHandler"))
 
 	// Graceful shutdown
