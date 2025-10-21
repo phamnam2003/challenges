@@ -11,46 +11,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/phamnam2003/challenges/tech/otel/collector/observer"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
-
-// newTraceProvider concrete implemtation trace provider, push to otel collector
-func newTraceProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdktrace.TracerProvider, error) {
-	// exporter to push into otel collector
-	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
-	}
-
-	// merge with default resource, this make sure no missing attribute in resource
-	res, err = resource.Merge(resource.Default(), res)
-	if err != nil {
-		if errors.Is(err, resource.ErrPartialResource) || errors.Is(err, resource.ErrSchemaURLConflict) {
-			log.Printf("warning: partial resource merged: %v", err)
-		}
-		return nil, fmt.Errorf("failed to merged resource: %w", err)
-	}
-
-	// create new trace provider with exporter and resource, you need configure sampler with tail sampling.
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(1.0))),
-	)
-	return tp, nil
-}
 
 func newMeterProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdkmetric.MeterProvider, error) {
 	// create metrics exporter to push to otel collector with grpc connection
@@ -207,7 +180,7 @@ func main() {
 	}
 
 	// Khởi tạo tracer provider
-	tp, err := newTraceProvider(ctx, conn, res)
+	tp, err := observer.NewTraceProvider(ctx, conn, res)
 	if err != nil {
 		log.Fatal("cannot create tracer provider", err)
 	}
