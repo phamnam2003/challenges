@@ -131,6 +131,10 @@ func SetupOtelSDK(ctx context.Context, conn *grpc.ClientConn) (func(context.Cont
 	otel.SetTextMapPropagator(prop)
 
 	res, err := newResource(ctx)
+	if err != nil {
+		handleErr(err)
+		return shutdown, err
+	}
 
 	// Set up tp: trace provider.
 	tp, err := newTraceProvider(ctx, conn, res)
