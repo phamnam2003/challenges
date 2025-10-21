@@ -5,8 +5,10 @@ receivers:
     protocols:
       grpc:
         endpoint: 0.0.0.0:4317
-      http:
-        endpoint: 0.0.0.0:4318
+        max_recv_msg_size_mib: 16
+        max_concurrent_streams: 100
+      # http:
+      #   endpoint: 0.0.0.0:4318
 
 # exporters is end of pipelines, it responsibility sending data telemtry (traces, logs, metrics) to monitoring system, storage system, stats system
 # structure pipelines: receiver -> processors -> exporters
@@ -15,6 +17,16 @@ exporters:
     endpoint: jaeger:4317
     tls:
       insecure: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
 
 # processors is heart of pipelines. It handle data, tranforms, optimal or enrich
 # It can be filter, sampling, batch
@@ -31,10 +43,17 @@ processors:
     limit_mib: 2048
     spike_limit_mib: 512
 
+  # add resource processor to enrich metadata
+  resource:
+    attributes:
+      - key: collector.version
+        value: 0.108.0
+        action: insert
+
   tail_sampling:
-    decision_wait: 5s
-    num_traces: 50000
-    expected_new_traces_per_sec: 5000
+    decision_wait: 10s
+    num_traces: 100000
+    expected_new_traces_per_sec: 100
 
     policies:
       - name: errors
@@ -45,6 +64,10 @@ processors:
         type: latency
         latency: { threshold_ms: 5000 }
 
+      - name: slow-requests
+        type: latency
+        latency: { threshold_ms: 2000 }
+
       - name: business-critical
         type: string_attribute
         string_attribute:
@@ -53,16 +76,26 @@ processors:
 
       - name: minimal-sample
         type: probabilistic
-        probabilistic: { sampling_percentage: 1 } # 1%
+        probabilistic: { sampling_percentage: 10 } # 10%
 
 # extensions for Collector health monitoring, service discovery, or data forwarding, among others
 extensions:
   health_check:
+    endpoint: 0.0.0.0:13133
+    path: /health
+    check_collector_pipeline:
+      enabled: true
+      interval: 5m
+      exporter_failure_threshold: 5
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
 
 service:
-  extensions: [health_check]
+  extensions: [health_check, pprof, zpages]
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch, memory_limiter, tail_sampling]
-      exporters: [otlp/jaeger]
+      processors: [memory_limiter, resource, batch, tail_sampling]
+      exporters: [otlp/jaeger, debug]
