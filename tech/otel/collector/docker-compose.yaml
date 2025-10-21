@@ -5,7 +5,7 @@ services:
     volumes:
       - ./collector-config.yaml:/etc/otel/config.yaml
     ports:
-      - "4318:4318" # OTLP HTTP
+      - "4317:4317" # OTLP gRPC
       - "13133:13133" # Health check
     depends_on:
       - jaeger
