@@ -12,31 +12,10 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
-
-func newMeterProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdkmetric.MeterProvider, error) {
-	// create metrics exporter to push to otel collector with grpc connection
-	exporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(conn))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create metric exporter: %w", err)
-	}
-
-	// create meter provider with exporter and resource
-	mp := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(
-			exporter,
-			sdkmetric.WithInterval(15*time.Second), // export metrics every 15 seconds
-		)),
-		sdkmetric.WithResource(res),
-	)
-	return mp, nil
-}
 
 func complexHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
