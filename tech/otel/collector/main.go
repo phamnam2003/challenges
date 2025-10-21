@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -148,63 +146,21 @@ func complexHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	ctx := context.Background()
-
-	// res: resource in opentelemetry. `resource` should embeded into service telemetry data: logs, metrics, traces
-	res, err := resource.New(ctx,
-		resource.WithFromEnv(),      // Discover and provide attributes from OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME environment variables.
-		resource.WithTelemetrySDK(), // Discover and provide information about the OpenTelemetry SDK used.
-		resource.WithProcess(),      // Discover and provide process information.
-		resource.WithOS(),           // Discover and provide OS information.
-		resource.WithContainer(),    // Discover and provide container information.
-		resource.WithHost(),         // Discover and provide host information.
-		resource.WithAttributes(
-			semconv.ServiceName("otel-http-demo"),
-			semconv.ServiceVersion("1.0.0"),
-			attribute.String("environment", "development"),
-			attribute.String("language", "go"),
-			attribute.String("author", "phamnam2003"), // custom attribute, this attribute should embeded into each query. It make other people easy to know who create this service
-			attribute.StringSlice("contributors", []string{"chatgpt", "claud.ai", "deepseek"}),
-		),
-	)
-	if err != nil {
-		// check partial resource error or schema url conflict, this error can be may happen in service.
-		if errors.Is(err, resource.ErrPartialResource) || errors.Is(err, resource.ErrSchemaURLConflict) {
-			log.Printf("warning: partial resource created: %v", err)
-		}
-		log.Fatal("failed to create resource: ", err)
-	}
 	// this recommendation approach step with grpc connection, you can custom credentials with token (JWT, PASETO, etc.)
 	conn, err := grpc.NewClient("0.0.0.0:4317", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal("failed to create gRPC connection to collector: ", err)
 	}
 
-	// Khởi tạo tracer provider
-	tp, err := observer.NewTraceProvider(ctx, conn, res)
+	shutdown, err := observer.SetupOtelSDK(ctx, conn)
 	if err != nil {
-		log.Fatal("cannot create tracer provider", err)
+		log.Fatal("failed to setup otel sdk: ", err)
 	}
-
-	// Set global tracer provider and propagator
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	))
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := tp.Shutdown(ctx); err != nil {
-			log.Fatal("Error shutting down tracer provider: ", err)
+		if err := shutdown(ctx); err != nil {
+			log.Fatal("failed to shutdown otel sdk: ", err)
 		}
 	}()
-
-	m, err := newMeterProvider(ctx, conn, res)
-	if err != nil {
-		log.Fatal(err)
-	}
-	otel.SetMeterProvider(m)
-	defer m.Shutdown(context.Background())
 
 	mux := http.NewServeMux()
 	mux.Handle("/hello", otelhttp.NewHandler(http.HandlerFunc(helloHandler), "HelloHandler"))
