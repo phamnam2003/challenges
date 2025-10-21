@@ -1,19 +1,25 @@
-# TODO: Can open with SSL/TLS configure
+# receivers is entry point of observability data.
+# collector receiver from a lot of resources, it may be application, agent or intermediates system via receivers plugin corresponding.
 receivers:
-  otlp:
+  otlp: # OpenTelemetry Protocol
     protocols:
       grpc:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
 
+# exporters is end of pipelines, it responsibility sending data telemtry (traces, logs, metrics) to monitoring system, storage system, stats system
+# structure pipelines: receiver -> processors -> exporters
 exporters:
   otlp/jaeger:
     endpoint: jaeger:4317
     tls:
       insecure: true
-    # TODO: configure metrics exporters
 
+# processors is heart of pipelines. It handle data, tranforms, optimal or enrich
+# It can be filter, sampling, batch
+# add metadata, resource attributes
+# tranforms or reformat data
 processors:
   batch:
     timeout: 2s
@@ -47,8 +53,9 @@ processors:
 
       - name: minimal-sample
         type: probabilistic
-        probabilistic: { sampling_percentage: 0.1 }
+        probabilistic: { sampling_percentage: 1 } # 1%
 
+# extensions for Collector health monitoring, service discovery, or data forwarding, among others
 extensions:
   health_check:
 
@@ -59,4 +66,3 @@ service:
       receivers: [otlp]
       processors: [batch, memory_limiter, tail_sampling]
       exporters: [otlp/jaeger]
-    # TODO: confiure push metrics into collector
