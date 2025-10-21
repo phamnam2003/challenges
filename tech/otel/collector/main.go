@@ -15,8 +15,10 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -25,13 +27,7 @@ import (
 )
 
 // newTraceProvider concrete implemtation trace provider, push to otel collector
-func newTraceProvider(ctx context.Context, res *resource.Resource) (*sdktrace.TracerProvider, error) {
-	// this recommendation approach step with grpc connection, you can custom credentials with token (JWT, PASETO, etc.)
-	conn, err := grpc.NewClient("0.0.0.0:4317", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
-	}
-
+func newTraceProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdktrace.TracerProvider, error) {
 	// exporter to push into otel collector
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 	if err != nil {
@@ -54,6 +50,24 @@ func newTraceProvider(ctx context.Context, res *resource.Resource) (*sdktrace.Tr
 		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(1.0))),
 	)
 	return tp, nil
+}
+
+func newMeterProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdkmetric.MeterProvider, error) {
+	// create metrics exporter to push to otel collector with grpc connection
+	exporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(conn))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create metric exporter: %w", err)
+	}
+
+	// create meter provider with exporter and resource
+	mp := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(
+			exporter,
+			sdkmetric.WithInterval(15*time.Second), // export metrics every 15 seconds
+		)),
+		sdkmetric.WithResource(res),
+	)
+	return mp, nil
 }
 
 func helloHandler(w http.ResponseWriter, r *http.Request) {
@@ -186,9 +200,14 @@ func main() {
 		}
 		log.Fatal("failed to create resource: ", err)
 	}
+	// this recommendation approach step with grpc connection, you can custom credentials with token (JWT, PASETO, etc.)
+	conn, err := grpc.NewClient("0.0.0.0:4317", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatal("failed to create gRPC connection to collector: ", err)
+	}
 
 	// Khởi tạo tracer provider
-	tp, err := newTraceProvider(ctx, res)
+	tp, err := newTraceProvider(ctx, conn, res)
 	if err != nil {
 		log.Fatal("cannot create tracer provider", err)
 	}
@@ -199,7 +218,6 @@ func main() {
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
-
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -207,6 +225,13 @@ func main() {
 			log.Fatal("Error shutting down tracer provider: ", err)
 		}
 	}()
+
+	m, err := newMeterProvider(ctx, conn, res)
+	if err != nil {
+		log.Fatal(err)
+	}
+	otel.SetMeterProvider(m)
+	defer m.Shutdown(context.Background())
 
 	mux := http.NewServeMux()
 	mux.Handle("/hello", otelhttp.NewHandler(http.HandlerFunc(helloHandler), "HelloHandler"))
