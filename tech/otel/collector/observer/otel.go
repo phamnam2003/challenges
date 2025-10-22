@@ -31,15 +31,6 @@ func newTraceProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
 
-	// merge with default resource, this make sure no missing attribute in resource
-	res, err = resource.Merge(resource.Default(), res)
-	if err != nil {
-		if errors.Is(err, resource.ErrPartialResource) || errors.Is(err, resource.ErrSchemaURLConflict) {
-			log.Printf("warning: partial resource merged: %v", err)
-		}
-		return nil, fmt.Errorf("failed to merged resource: %w", err)
-	}
-
 	// create new trace provider with exporter and resource, you need configure sampler with tail sampling.
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
@@ -90,11 +81,16 @@ func newResource(ctx context.Context) (*resource.Resource, error) {
 		),
 	)
 	if err != nil {
-		// check partial resource error or schema url conflict, this error can be may happen in service.
-		if errors.Is(err, resource.ErrPartialResource) || errors.Is(err, resource.ErrSchemaURLConflict) {
-			log.Printf("warning: partial resource created: %v", err)
-		}
 		return nil, fmt.Errorf("failed to create resource: %w", err)
+	}
+
+	// merge with default resource, this make sure no missing attribute in resource
+	res, err = resource.Merge(resource.Default(), res)
+	if err != nil {
+		if errors.Is(err, resource.ErrPartialResource) || errors.Is(err, resource.ErrSchemaURLConflict) {
+			log.Printf("warning: partial resource merged: %v", err)
+		}
+		return nil, fmt.Errorf("failed to merged resource: %w", err)
 	}
 
 	return res, nil
