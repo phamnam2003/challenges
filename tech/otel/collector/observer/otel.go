@@ -10,9 +10,12 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -102,6 +105,19 @@ func newPropagator() propagation.TextMapPropagator {
 	return propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
 }
 
+func newLoggerProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdklog.LoggerProvider, error) {
+	exporter, err := otlploggrpc.New(ctx, otlploggrpc.WithGRPCConn(conn))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create log exporter: %w", err)
+	}
+
+	lp := sdklog.NewLoggerProvider(
+		sdklog.WithProcessor(sdklog.NewBatchProcessor(exporter)),
+		sdklog.WithResource(res),
+	)
+	return lp, nil
+}
+
 // SetupOtelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func SetupOtelSDK(ctx context.Context, conn *grpc.ClientConn) (func(context.Context) error, error) {
@@ -146,13 +162,22 @@ func SetupOtelSDK(ctx context.Context, conn *grpc.ClientConn) (func(context.Cont
 	otel.SetTracerProvider(tp)
 
 	// Set up meter provider.
-	meterProvider, err := newMeterProvider(ctx, conn, res)
+	mp, err := newMeterProvider(ctx, conn, res)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
 	}
-	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
-	otel.SetMeterProvider(meterProvider)
+	shutdownFuncs = append(shutdownFuncs, mp.Shutdown)
+	otel.SetMeterProvider(mp)
+
+	// Setup logger provider.
+	lp, err := newLoggerProvider(ctx, conn, res)
+	if err != nil {
+		handleErr(err)
+		return shutdown, err
+	}
+	shutdownFuncs = append(shutdownFuncs, lp.Shutdown)
+	global.SetLoggerProvider(lp)
 
 	return shutdown, err
 }
