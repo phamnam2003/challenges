@@ -122,6 +122,42 @@ func main() {
 		Handler: mux,
 	}
 
+	// m := otel.Meter("collector_metric")
+	// // create counter, histogram, gauge, updown metric
+	// // it is the same configuration as prometheus example in tech/otel/prometheus/main.go
+	// counter, err := m.Int64Counter("collector_requests_total")
+	// if err != nil {
+	// 	log.Fatal("failed to create counter: ", err)
+	// }
+	// counter.Add(ctx, rand.Int64N(120))
+	//
+	// gauge, err := m.Float64ObservableGauge("bar", metric.WithDescription("simple_gauge"))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	//
+	// _, err = m.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
+	// 	n := -10. + rand.Float64()*(90.0) // [-10, 80)
+	// 	o.ObserveFloat64(gauge, n)
+	// 	return nil
+	// }, gauge)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	//
+	// histogram, err := m.Float64Histogram(
+	// 	"baz",
+	// 	metric.WithDescription("a histogram with custom buckets and rename"),
+	// 	metric.WithExplicitBucketBoundaries(64, 128, 256, 512, 1024, 2048, 4096),
+	// )
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// histogram.Record(ctx, 136)
+	// histogram.Record(ctx, 64)
+	// histogram.Record(ctx, 701)
+	// histogram.Record(ctx, 830)
+
 	log.Println("🚀 Server started at :8080")
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal("Server error: ", err)

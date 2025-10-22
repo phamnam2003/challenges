@@ -108,6 +108,7 @@ service:
 
   telemetry: # confiuration internal collector metrics, logs
     metrics:
+      # level: detailed
       readers:
         - pull:
             exporter:
