@@ -89,7 +89,7 @@ extensions:
       exporter_failure_threshold: 5
   pprof:
     endpoint: 0.0.0.0:1777
-  zpages:
+  zpages: # not recommend turn on this extensions in production mode
     endpoint: 0.0.0.0:55679
 
 service:
