@@ -23,10 +23,12 @@ exporters:
       max_interval: 30s
       max_elapsed_time: 300s
 
+  prometheus: # this endpoint for prometheus scrape metrics from application
+    endpoint: "0.0.0.0:9464"
+    namespace: "otel-collector-demo"
+
   debug:
     verbosity: detailed
-    sampling_initial: 5
-    sampling_thereafter: 200
 
 # processors is heart of pipelines. It handle data, tranforms, optimal or enrich
 # It can be filter, sampling, batch
@@ -99,7 +101,12 @@ service:
       receivers: [otlp]
       processors: [memory_limiter, resource, batch, tail_sampling]
       exporters: [otlp/jaeger, debug]
-  telemetry:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus, debug]
+
+  telemetry: # confiuration internal collector metrics, logs
     metrics:
       readers:
         - pull:
