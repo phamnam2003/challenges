@@ -10,7 +10,7 @@ receivers:
       # http:
       #   endpoint: 0.0.0.0:4318
 
-# exporters is end of pipelines, it responsibility sending data telemtry (traces, logs, metrics) to monitoring system, storage system, stats system
+# exporters: end of pipelines, it responsibility sending data telemtry (traces, logs, metrics) to monitoring system, storage system, stats system
 # structure pipelines: receiver -> processors -> exporters
 exporters:
   otlp/jaeger:
@@ -26,6 +26,9 @@ exporters:
   prometheus: # this endpoint for prometheus scrape metrics from application
     endpoint: "0.0.0.0:9464"
     namespace: "otel-collector-demo"
+
+  loki:
+    endpoint: http://loki:3100/otlp
 
   debug:
     verbosity: detailed
@@ -105,6 +108,10 @@ service:
       receivers: [otlp]
       processors: [memory_limiter, resource, batch]
       exporters: [prometheus, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [loki, debug]
 
   telemetry: # confiuration internal collector metrics, logs
     metrics:
