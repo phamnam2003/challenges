@@ -74,7 +74,7 @@ func newResource(ctx context.Context) (*resource.Resource, error) {
 		resource.WithAttributes(
 			semconv.ServiceName("otel-http-demo"),
 			semconv.ServiceVersion("1.0.0"),
-			attribute.String("environment", "development"),
+			semconv.DeploymentEnvironment("dev"),
 			attribute.String("language", "go"),
 			attribute.String("author", "phamnam2003"), // custom attribute, this attribute should embeded into each query. It make other people easy to know who create this service
 			attribute.StringSlice("contributors", []string{"chatgpt", "claud.ai", "deepseek"}),
@@ -107,8 +107,9 @@ func newLoggerProvider(ctx context.Context, conn *grpc.ClientConn, res *resource
 		return nil, fmt.Errorf("failed to create log exporter: %w", err)
 	}
 
+	batchProcessor := sdklog.NewBatchProcessor(exporter, sdklog.WithExportTimeout(30*time.Second))
 	lp := sdklog.NewLoggerProvider(
-		sdklog.WithProcessor(sdklog.NewBatchProcessor(exporter)),
+		sdklog.WithProcessor(batchProcessor),
 		sdklog.WithResource(res),
 	)
 	return lp, nil
