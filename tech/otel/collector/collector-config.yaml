@@ -27,7 +27,7 @@ exporters:
     endpoint: "0.0.0.0:9464"
     namespace: "otel-collector-demo"
 
-  loki:
+  otlphttp:
     endpoint: http://loki:3100/otlp
 
   debug:
@@ -111,7 +111,7 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, resource, batch]
-      exporters: [loki, debug]
+      exporters: [otlphttp, debug]
 
   telemetry: # confiuration internal collector metrics, logs
     metrics:
