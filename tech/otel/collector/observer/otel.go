@@ -26,7 +26,12 @@ import (
 // newTraceProvider creates a new OpenTelemetry TracerProvider that exports traces
 func newTraceProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdktrace.TracerProvider, error) {
 	// trace exporter to push into otel collector
-	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
+	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn), otlptracegrpc.WithRetry(otlptracegrpc.RetryConfig{
+		Enabled:         true,
+		InitialInterval: 5 * time.Second,
+		MaxInterval:     30 * time.Second,
+		MaxElapsedTime:  60 * time.Second,
+	}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
@@ -45,7 +50,12 @@ func newTraceProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.
 // newMeterProvider creates a new OpenTelemetry MeterProvider that exports metrics
 func newMeterProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdkmetric.MeterProvider, error) {
 	// metric exporter to push into otel collector
-	meterExporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(conn))
+	meterExporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(conn), otlpmetricgrpc.WithRetry(otlpmetricgrpc.RetryConfig{
+		Enabled:         true,
+		InitialInterval: 5 * time.Second,
+		MaxInterval:     30 * time.Second,
+		MaxElapsedTime:  60 * time.Second,
+	}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metric exporter: %w", err)
 	}
@@ -102,7 +112,12 @@ func newPropagator() propagation.TextMapPropagator {
 }
 
 func newLoggerProvider(ctx context.Context, conn *grpc.ClientConn, res *resource.Resource) (*sdklog.LoggerProvider, error) {
-	exporter, err := otlploggrpc.New(ctx, otlploggrpc.WithGRPCConn(conn))
+	exporter, err := otlploggrpc.New(ctx, otlploggrpc.WithGRPCConn(conn), otlploggrpc.WithRetry(otlploggrpc.RetryConfig{
+		Enabled:         true,
+		InitialInterval: 5 * time.Second,
+		MaxInterval:     30 * time.Second,
+		MaxElapsedTime:  60 * time.Second,
+	}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log exporter: %w", err)
 	}
