@@ -160,7 +160,7 @@ func main() {
 	histogram.Record(ctx, 701)
 	histogram.Record(ctx, 830)
 
-	log.Println("🚀 Server started at :8080")
+	observer.GetZapOTel().Info("Starting server at :8080")
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal("Server error: ", err)
 	}
