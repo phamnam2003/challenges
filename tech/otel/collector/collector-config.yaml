@@ -82,6 +82,11 @@ processors:
       - name: minimal-sample
         type: probabilistic
         probabilistic: { sampling_percentage: 10 } # 10%
+  filter/ottl:
+    error_mode: ignore
+    logs:
+      log_record:
+        - 'attributes["type"] != "otel"'
 
 # extensions for Collector health monitoring, service discovery, or data forwarding, among others
 extensions:
@@ -110,7 +115,7 @@ service:
       exporters: [prometheus, debug]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, resource, batch]
+      processors: [memory_limiter, resource, filter/ottl, batch]
       exporters: [otlphttp/logs, debug]
 
   telemetry: # confiuration internal collector metrics, logs
