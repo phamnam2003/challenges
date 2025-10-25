@@ -96,3 +96,58 @@ service:
       processors: [batch]
       exporters: [otlp]
 ```
+
+## Internal telemetry
+
+- You can inspect the health of any `OpenTelemetry Collector` instance by checking its own internal telemetry. Read on to learn about this telemetry and how to configure it to help you [monitor](https://opentelemetry.io/docs/collector/internal-telemetry/#use-internal-telemetry-to-monitor-the-collector) and troubleshoot the [Collector](https://opentelemetry.io/docs/collector/troubleshooting/).
+
+### Configure internal metrics
+
+- You can configure how internal metrics are generated and exposed by the `Collector`. By default, the `Collector` generates basic metrics about itself and exposes them using the `OpenTelemetry Go Prometheus exporter` for scraping at `http://127.0.0.1:8888/metrics`.
+- The `Collector` can push its internal metrics to an `OTLP backend` via the following configuration:
+
+```yaml
+service:
+  telemetry:
+    metrics:
+    metrics:
+      # level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: "0.0.0.0"
+                port: 8888
+```
+
+### Configure internal logs
+
+- The following configuration can be used to emit internal logs from the Collector to an `OTLP/HTTP backend`:
+
+```yaml
+service:
+  telemetry:
+    logs:
+      processors:
+        - batch:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: https://backend:4318
+```
+
+### Configure internal traces
+
+- The Collector does not expose traces by default, but it can be configured to. The following configuration can be used to emit internal traces from the Collector to an `OTLP backend`:
+
+```yaml
+service:
+  telemetry:
+    traces:
+      processors:
+        - batch:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: https://backend:4318
+```
