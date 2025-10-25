@@ -151,3 +151,50 @@ service:
                 protocol: http/protobuf
                 endpoint: https://backend:4318
 ```
+
+## Transforming telemetry
+
+- The `OpenTelemetry Collector` is a convenient place to transform data before sending it to a vendor or other systems. This is frequently done for *data quality*, *governance*, *cost*, and *security reasons*.
+
+### Basic filtering
+
+- ***Processor***: [filter processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/filterprocessor)
+- The filter processor allows users to filter telemetry using [OTTL](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/README.md). Telemetry that matches any condition is dropped.
+- For example, to *only allow* span data from services app1, app2, and app3 and drop data from all other services:
+
+```yaml
+processors:
+  filter/ottl:
+    error_mode: ignore
+    traces:
+      span:
+        - |
+        resource.attributes["service.name"] != "app1" and
+        resource.attributes["service.name"] != "app2" and
+        resource.attributes["service.name"] != "app3"
+```
+
+- To *only drop* spans from a service called service1 while keeping all other spans:
+
+```yaml
+processors:
+  filter/ottl:
+    error_mode: ignore
+    traces:
+      span:
+        - resource.attributes["service.name"] == "service1"
+```
+
+### Adding or Deleting Attributes
+
+- ***Processor***: [attributes processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/attributesprocessor) or [resource processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourceprocessor)
+- The attributes processor can be used to *update*, *insert*, *delete*, or *replace existing attributes* on metrics or traces. For example, here’s a configuration that adds an attribute called account_id to all spans:
+
+```yaml
+processors:
+  attributes/accountid:
+    actions:
+      - key: account_id
+        value: 2245
+        action: insert
+```
