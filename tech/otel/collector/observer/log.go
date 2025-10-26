@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
@@ -40,18 +40,25 @@ func newLoggerProvider(ctx context.Context, conn *grpc.ClientConn, res *resource
 		sdklog.WithProcessor(batchProcessor),
 		sdklog.WithResource(res),
 	)
-	setZapOTel(zapcore.InfoLevel, os.Stdout, lp)
+	setZapOTel(zapcore.InfoLevel, lp, os.Stdout)
 	return lp, nil
 }
 
 // setZapOTel sets up a zap logger that writes to the provided writer and uses the given LoggerProvider
-func setZapOTel(level zapcore.Level, w io.Writer, lp *sdklog.LoggerProvider) {
+func setZapOTel(level zapcore.Level, lp *sdklog.LoggerProvider, writers ...io.Writer) {
 	once.Do(func() {
-		core := zapcore.NewTee(
-			zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), zapcore.AddSync(w), level),
-			otelzap.NewCore("observer/otelzap/bridges", otelzap.WithSchemaURL(semconv.SchemaURL), otelzap.WithLoggerProvider(lp)),
+		cores := make([]zapcore.Core, 0, len(writers)+1)
+		for _, w := range writers {
+			cores = append(cores, zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), zapcore.AddSync(w), level))
+		}
+		// add otelzap core bridges to push logs to OpenTelemetry Collector
+		cores = append(cores, otelzap.NewCore("observer/otelzap/bridges", otelzap.WithSchemaURL(semconv.SchemaURL), otelzap.WithLoggerProvider(lp)))
+
+		// NewTee combines multiple cores into one zap logger
+		coreTee := zapcore.NewTee(
+			cores...,
 		)
-		zapOTel = zap.New(core, zap.AddCaller())
+		zapOTel = zap.New(coreTee, zap.AddCaller())
 	})
 }
 
