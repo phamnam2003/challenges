@@ -121,3 +121,12 @@ spec:
             port:
               number: 80
 ```
+
+## Ingress Controllers
+
+- In order for an [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) to work in your cluster, there must be an *ingress controller running*. You need to select at *least one* ingress controller and make sure it is set up in your cluster.
+- In order for the Ingress resource to work, the cluster must have an ingress controller running. `Kubernetes` as a project supports and maintains [AWS](https://github.com/kubernetes-sigs/aws-load-balancer-controller#readme), [GCE](https://git.k8s.io/ingress-gce/README.md#readme), and [Nginx](https://git.k8s.io/ingress-nginx/README.md#readme) ingress controllers.
+- Three popular Ingress Controllers:
+  - [HAProxy Ingress](https://haproxy-ingress.github.io/) is an ingress controller for [HAProxy](https://www.haproxy.org/#desc).
+  - The [Kong Ingress Controller](https://github.com/Kong/kubernetes-ingress-controller#readme) for Kubernetes is an ingress controller driving [Kong Gateway](https://konghq.com/kong/).
+  - The [NGINX Ingress Controller](https://www.nginx.com/products/nginx-ingress-controller/) for Kubernetes works with the [NGINX](https://www.nginx.com/resources/glossary/nginx/) webserver (as a proxy).
