@@ -28,3 +28,36 @@
   - [**kubelet**](https://kubernetes.io/docs/concepts/architecture/#kubelet): Ensures that Pods are running, including their containers.
   - [**kube-proxy**](https://kubernetes.io/docs/concepts/architecture/#kube-proxy): Maintains network rules on nodes to implement Services.
   - [**Container runtime**](https://kubernetes.io/docs/concepts/architecture/#container-runtime): Software responsible for running containers.
+
+# Objects in Kubernetes
+
+- `Kubernetes` objects are *persistent entities* in the `Kubernetes` system. `Kubernetes` uses these entities to represent the state of your cluster. Learn about the `Kubernetes` object model and how to work with these objects.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+```
+
+- Required fields in a `Kubernetes` object manifest:
+  - `apiVersion`: The versioned schema of the object representation.
+  - `kind`: The type of `Kubernetes` object being created.
+  - `metadata`: Data that helps uniquely identify the object, including a `name` string, `UID`, and optional `namespace`.
+  - `spec`: The desired state of the object, as defined by the user.
+- In `Kubernetes`, namespaces provide a mechanism for isolating groups of resources within a single cluster. Names of resources need to be unique within a namespace, but not across namespaces. Namespace-based scoping is applicable only for `namespaced` objects (e.g. `Deployments`, `Services`, etc.) and not for cluster-wide objects (e.g. `StorageClass`, `Nodes`, `PersistentVolumes`, etc.)
