@@ -95,3 +95,29 @@ spec:
   - [**NodePort**](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport): Exposes the Service on each Node's IP at a static port (the `NodePort`). To make the node port available, `Kubernetes` sets up a cluster IP address, the same as if you had requested a Service of type: `ClusterIP`. the Kubernetes control plane allocates a port from a range specified by `--service-node-port-range` flag (default: `30000-32767`)
   - [**LoadBalancer**](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer): Exposes the Service externally using an external load balancer. Kubernetes does not directly offer a load balancing component; you must provide one, or you can integrate your Kubernetes cluster with a cloud provider.
   - [**ExternalName**](https://kubernetes.io/docs/concepts/services-networking/service/#externalname): Maps the Service to the contents of the externalName field (for example, to the *hostname* `api.foo.bar.example`). The mapping configures your cluster's DNS server to return a `CNAME` record with that external `hostname` value. No proxying of any kind is set up.
+
+## Ingress
+
+- Make your HTTP (or HTTPS) network service available using *a protocol-aware configuration mechanism*, that understands web concepts like `URIs`, `hostnames`, `paths`, and **more**. The `Ingress` concept lets you *map traffic to different backends* based on rules you define via the `Kubernetes API`.
+- [Ingress](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#ingress-v1-networking-k8s-io) exposes HTTP and HTTPS routes from outside the cluster to services within the cluster. Traffic routing is controlled by rules defined on the Ingress resource.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minimal-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx-example
+  rules:
+  - http:
+      paths:
+      - path: /testpath
+        pathType: Prefix
+        backend:
+          service:
+            name: test
+            port:
+              number: 80
+```
