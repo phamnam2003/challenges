@@ -14,14 +14,11 @@ Vagrant.configure("2") do |config|
   # boxes at https://vagrantcloud.com/search.
   config.vm.box = "ubuntu/jammy64"
   config.vm.box_check_update = false
-  BASE_IP = "192.168.56."
+  BASE_IP = "192.168.1."
   (1..3).each do |i|
     config.vm.define "node#{i}" do |node|
       node.vm.hostname = "node#{i}"
-      node.vm.network "private_network", ip: "#{BASE_IP}#{10 + i}"
-
-      # Mở SSH port ra host (tùy chọn)
-      node.vm.network "forwarded_port", guest: 22, host: (2200 + i), id: "ssh"
+      node.vm.network "public_network", ip: "#{BASE_IP}#{120 + i}", bridge: "wlp0s20f3"
 
       node.vm.provider "virtualbox" do |vb|
         vb.memory = 4096
