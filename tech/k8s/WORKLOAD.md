@@ -117,3 +117,117 @@ spec:
         operator: In
         values: [42]
 ```
+
+## Workload Management
+
+- `Kubernetes` provides several *built-in APIs* for declarative management of your workloads and the components of those workloads.
+
+### Deployments
+
+- A `Deployment` manages a set of Pods to run an application workload, usually one that doesn't maintain state.
+- A `Deployment` provides declarative updates for *Pods* and *ReplicaSets*.
+- You describe a desired state in a Deployment, and the Deployment Controller changes the actual state to the desired state at a controlled rate. You can define Deployments to create new ReplicaSets, or to remove existing Deployments and adopt all their resources with new Deployments.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+```
+
+```bash
+# Apply the Deployment configuration
+kubectl apply -f <yaml_config_file>
+# Show deployments status 
+kubectl get deployments
+```
+
+### ReplicaSet
+
+- A `ReplicaSet's` purpose is to maintain a stable set of replica `Pods` running at any given time. Usually, you define a `Deployment` and let that Deployment manage `ReplicaSets` automatically.
+- A `ReplicaSet` is defined with *fields*, including a *selector* that specifies how to identify `Pods` it can acquire, a *number of replicas indicating how many Pods* it should be maintaining, and a pod template specifying the data of new `Pods` it should create to meet the number of replicas criteria.
+- A `ReplicaSet` ensures that a specified number of pod replicas are running at any given time
+
+```yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: frontend
+  labels:
+    app: guestbook
+    tier: frontend
+spec:
+  # modify replicas according to your case
+  replicas: 3
+  selector:
+    matchLabels:
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        tier: frontend
+    spec:
+      containers:
+      - name: php-redis
+        image: us-docker.pkg.dev/google-samples/containers/gke/gb-frontend:v5
+```
+
+- You can then get the current ReplicaSets deployed and describe that:
+
+```bash
+kubectl get rs
+# NAME       DESIRED   CURRENT   READY   AGE
+# frontend   3         3         3       6s
+kubectl describe rs/frontend
+# Name:         frontend
+# Namespace:    default
+# Selector:     tier=frontend
+# Labels:       app=guestbook
+#               tier=frontend
+# Annotations:  <none>
+# Replicas:     3 current / 3 desired
+# Pods Status:  3 Running / 0 Waiting / 0 Succeeded / 0 Failed
+# Pod Template:
+#   Labels:  tier=frontend
+#   Containers:
+#    php-redis:
+#     Image:        us-docker.pkg.dev/google-samples/containers/gke/gb-frontend:v5
+#     Port:         <none>
+#     Host Port:    <none>
+#     Environment:  <none>
+#     Mounts:       <none>
+#   Volumes:        <none>
+# Events:
+#   Type    Reason            Age   From                   Message
+#   ----    ------            ----  ----                   -------
+#   Normal  SuccessfulCreate  13s   replicaset-controller  Created pod: frontend-gbgfx
+#   Normal  SuccessfulCreate  13s   replicaset-controller  Created pod: frontend-rwz57
+#   Normal  SuccessfulCreate  13s   replicaset-controller  Created pod: frontend-wkl7w
+```
+
+- And lastly you can check for the Pods brought up:
+
+```bash
+kubectl get pods
+# NAME             READY   STATUS    RESTARTS   AGE
+# frontend-gbgfx   1/1     Running   0          10m
+# frontend-rwz57   1/1     Running   0          10m
+# frontend-wkl7w   1/1     Running   0          10m
+```
