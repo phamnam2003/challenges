@@ -1,4 +1,4 @@
-# Installation
+## Installation
 
 - Install `vagrant` and `virtualbox` with package manager:
 
@@ -19,6 +19,42 @@ sudo modprobe vboxnetadp
 
 ```bash
 vagrant up
+```
+
+## Usage
+
+- Initialize a new Vagrant environment in the current directory:
+
+```bash
+vagrant init <image_name>
+# vagrant init ubuntu/jammy64
+```
+
+- Start and provision the Vagrant environment:
+
+```bash
+vagrant up
+```
+
+- ssh to virtual machine:
+
+```bash
+vagrant ssh <machine_name>
+```
+
+## Destroy
+
+- Trace port forwarding and kill this process:
+
+```bash
+sudo lsof -i :<port_number_forwarded>
+kill -9 <PID>
+```
+
+- Destroy the Vagrant environment:
+
+```bash
+vagrant destroy -f 
 ```
 
 ## Uninstall
