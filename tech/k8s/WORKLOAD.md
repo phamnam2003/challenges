@@ -294,3 +294,61 @@ spec:
         requests:
           storage: 1Gi
 ```
+
+### DaemonSet
+
+- A `DaemonSet` defines Pods that provide *node-local facilities*. These might be fundamental to the operation of your cluster, such as a networking helper tool, or be part of an add-on.
+- A `DaemonSet` ensures that all (or some) Nodes run a copy of a Pod. As nodes are added to the cluster, Pods are added to them. Deleting a `DaemonSet` will clean up the Pods it created. Some typical uses of a `DaemonSet` are:
+  - running a cluster storage daemon on every node
+  - running a logs collection daemon on every node
+  - running a node monitoring daemon on every node
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd-elasticsearch
+  namespace: kube-system
+  labels:
+    k8s-app: fluentd-logging
+spec:
+  selector:
+    matchLabels:
+      name: fluentd-elasticsearch
+  template:
+    metadata:
+      labels:
+        name: fluentd-elasticsearch
+    spec:
+      tolerations:
+      # these tolerations are to have the daemonset runnable on control plane nodes
+      # remove them if your control plane nodes should not run pods
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: fluentd-elasticsearch
+        image: quay.io/fluentd_elasticsearch/fluentd:v5.0.1
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+      # it may be desirable to set a high priority class to ensure that a DaemonSet Pod
+      # preempts running Pods
+      # priorityClassName: important
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+```
+
+- `DaemonSets` are similar to Deployments in that they both create Pods, and those Pods have processes which are not expected to terminate (e.g. web servers, storage servers).
