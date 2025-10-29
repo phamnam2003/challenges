@@ -48,3 +48,5 @@ test/api/logs/**/*.log
 *.srl
 *.crt
 *.csr
+
+**/.vagrant/
