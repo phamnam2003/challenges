@@ -141,3 +141,10 @@ kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/
 ```bash
 sudo kubeadm join x.x.x.x:6443 --token lllrj0.pystabmhlyt2svty --discovery-token-ca-cert-hash sha256:9d2fd15886eb176466640067f361ed2295de38188b057becf31d3bf5a4fb0b73
 ```
+
+- In Control Plane node, running the following command to verify that the worker nodes have successfully joined the cluster:
+
+```bash
+# that make sure all nodes are in Ready state and it have truth INTERNAL-IP
+kc get po -n kube-system -o wide | grep calico-node
+```
