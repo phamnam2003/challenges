@@ -132,24 +132,29 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  name: car-serv-deployment
+  namespace: car-serv
   labels:
-    app: nginx
+    app: apps.deployment-car-serv
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
-      app: nginx
+      app: apps.deployment-car-serv
   template:
     metadata:
       labels:
-        app: nginx
+        app: apps.deployment-car-serv
+      namespace: car-serv
     spec:
       containers:
-      - name: nginx
-        image: nginx:1.14.2
-        ports:
-        - containerPort: 80
+        - image: elroydevops/car-serv
+          imagePullPolicy: Always
+          name: car-serv
+          ports:
+            - containerPort: 80
+              name: tcp
+              protocol: TCP
 ```
 
 ```bash
