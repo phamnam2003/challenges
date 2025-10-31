@@ -27,6 +27,16 @@ Vagrant.configure("2") do |config|
     end
   end
 
+  # create server to deploy rancher server
+  config.vm.define "rancher-server" do |node|
+    node.vm.hostname = "rancher-server"
+    node.vm.network "public_network", ip: "#{BASE_IP}150", bridge: "wlp0s20f3"
+    node.vm.provider "virtualbox" do |vb|
+      vb.memory = 2048
+      vb.cpus = 1
+    end
+  end
+
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
