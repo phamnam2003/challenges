@@ -6,6 +6,7 @@ Make your `HTTP` (or `HTTPS`) network service available using a protocol-aware c
 
 - Must have [Ingress Controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/) to satisfy the Ingress.
 - You may need tp deploy an Ingress Controller such as [ingress-nginx](https://kubernetes.github.io/ingress-nginx/deploy/).
+- Make sure you have configuration your application service running with CLUSTERIP.
 
 ## Type of Ingress
 
@@ -99,4 +100,47 @@ server {
     proxy_read_timeout 90;
   }
 }
+```
+
+- Create ingress resource to rediect traffic to backend service, make sure nginx load balancer and service ClusterIP are setup successfully.
+
+```yaml
+# configuration cluster ip service to apply ingress
+apiVersion: v1
+kind: Service
+metadata:
+  name: car-serv-clusterip-serv
+  namespace: car-serv
+  labels:
+    app: car-serv-clusterip-serv
+spec:
+  type: ClusterIP
+  selector:
+    app: car-serv-deployment
+  ports:
+    - protocol: TCP
+      name: http
+      port: 80
+      targetPort: 80
+```
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: car-serv-ingress
+  namespace: car-serv
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: car-serv-onpre.phamnam.io # you can add host or write load balancer IP address
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: car-serv-clusterip-serv
+                port:
+                  number: 80
 ```
