@@ -56,6 +56,22 @@ spec:
 
 ## Installation
 
-- Recommend to use [Helm](https://helm.sh/) to install the Ingress Controller.
+- Recommend to use [Helm](https://helm.sh/) to install the Ingress Controller. Install Helm in [here](https://helm.sh/docs/intro/install)
 
 ### Nginx Ingress Controller
+
+- Add repo Ingress Nginx by Helm
+
+```bash
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx/
+helm repo update
+helm search repo ingress-nginx
+```
+
+- Pull helm chart to use `values.yaml` to customize the installation, we often change some field in that file before apply into k8s cluster:
+
+```bash
+helm pull ingress-nginx/ingress-nginx --untar
+```
+
+- If you use Cloud to implentation k8s cluster you can use `LoadBalancer` service type, otherwise you can use `NodePort` or `ClusterIP` service type. And change value `http` and `https` port if you want.
