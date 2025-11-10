@@ -1,4 +1,5 @@
 # NodePort allow you access to container without ingress.
+# Note: You must have deployment (manages Pod) before create service to access container
 apiVersion: v1
 kind: Service
 metadata:
