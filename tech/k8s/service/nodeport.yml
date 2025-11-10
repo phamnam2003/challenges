@@ -1,0 +1,14 @@
+# NodePort allow you access to container without ingress.
+apiVersion: v1
+kind: Service
+metadata:
+  name: <application>-service
+spec:
+  type: NodePort
+  selector: # IMPORTANT: must match labels of Pod in Deployment to route traffic
+    app: <application>-deployment
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30007 # this field value will allocate a port from a range 30000 - 32767
+      name: tcp # name port, should be define
