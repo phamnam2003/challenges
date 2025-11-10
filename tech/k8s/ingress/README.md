@@ -74,4 +74,29 @@ helm search repo ingress-nginx
 helm pull ingress-nginx/ingress-nginx --untar
 ```
 
-- If you use Cloud to implentation k8s cluster you can use `LoadBalancer` service type, otherwise you can use `NodePort` or `ClusterIP` service type. And change value `http` and `https` port if you want.
+- If you use Cloud to implentation k8s cluster you can use `LoadBalancer` service type, otherwise you can use `NodePort` or `ClusterIP` service type. And change value `http` and `https` port if you want (http and https of a service field).
+- Create new namespace to apply Ingress Controller. After that install Ingress Nginx by Helm:
+
+```bash
+helm -n <ingress_namespace> install <release_name> -f ingress-nginx/values.yaml ingress-nginx/ingress-nginx
+```
+
+- You need one server made Load Balancer, and install `nginx` or `haproxy` to forward traffic from port `80` and `443` to the Ingress Controller service.
+
+```nginx
+upstream k8s_servers {
+  server 192.168.79.11:30080;
+  server 192.168.79.12:30080;
+}
+server {
+  listen 80;
+  location / {
+    proxy_pass http://k8s_servers;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 90;
+  }
+}
+```
