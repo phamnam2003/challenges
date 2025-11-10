@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cluster-ip-service
+  namespace: namespace
+  labels:
+    app: cluster-ip-service
+spec:
+  type: ClusterIP
+  selector:
+    app: <application>-deployment
+    ports:
+      - protocol: TCP
+        port: 80 # port in cluster
+        targetPort: 80 # port in container port in deployment
