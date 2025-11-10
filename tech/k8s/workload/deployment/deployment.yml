@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workload-deployment
+  namespace: namespace
+  labels:
+    app: workload-deployment
+spec:
+  replicas: 4
+  strategy:
+    type: RollingUpdate # Or Recreate
+  revisionHistoryLimit: 11
+  selector:
+    matchLabels:
+      app: workload-deployment
+    namespace: namespace
+  template:
+    metadata:
+      labels:
+        app: workload-deployment
+      namespace: namespace
+    spec:
+      containers:
+        - image: container_image
+          imagePullPolicy: Always # Or 'IfNotPresent', 'Never'
+          name: container_name
+          ports:
+            - containerPort: 80 # port wheather container expose
+              name: tcp # port name, it may be grpc port, metrics port, ...
+              protocol: TCP
