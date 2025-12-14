@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"google.golang.org/grpc"
 )
 
@@ -29,7 +29,7 @@ func newResource(ctx context.Context) (*resource.Resource, error) {
 		resource.WithAttributes(
 			semconv.ServiceName("otel-http-demo"),
 			semconv.ServiceVersion("1.0.0"),
-			semconv.DeploymentEnvironment("dev"),
+			semconv.DeploymentEnvironmentName("production"),
 			attribute.String("language", "go"),
 			attribute.String("author", "phamnam2003"), // custom attribute, this attribute should embeded into each query. It make other people easy to know who create this service
 			attribute.StringSlice("contributors", []string{"chatgpt", "claud.ai", "deepseek"}),
