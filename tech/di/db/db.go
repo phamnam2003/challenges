@@ -6,9 +6,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
-func NewStorage(life fx.Lifecycle) (*pgxpool.Pool, error) {
+func NewStorage(
+	lc fx.Lifecycle,
+	log *zap.Logger,
+) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(
 		"postgres://user:password@localhost:5432/appdb",
 	)
@@ -24,11 +28,13 @@ func NewStorage(life fx.Lifecycle) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
-	life.Append(fx.Hook{
+	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			log.Info("postgres connecting")
 			return pool.Ping(ctx)
 		},
 		OnStop: func(ctx context.Context) error {
+			log.Info("postgres closing")
 			pool.Close()
 			return nil
 		},
