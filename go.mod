@@ -3,7 +3,6 @@ module github.com/phamnam2003/challenges
 go 1.24.0
 
 require (
-	aidanwoods.dev/go-paseto v1.6.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/gocql/gocql v1.7.0
 	github.com/google/uuid v1.6.0
@@ -35,7 +34,6 @@ require (
 )
 
 require (
-	aidanwoods.dev/go-result v0.3.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
