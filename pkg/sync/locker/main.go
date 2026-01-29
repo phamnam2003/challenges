@@ -35,7 +35,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	// Ghi dữ liệu trước
-	cache["user"] = "Nam"
+	cache["user"] = "Chris"
 
 	// 5 readers đọc cùng lúc
 	for i := 1; i <= 5; i++ {
@@ -43,10 +43,9 @@ func main() {
 		go read(i, "user", &wg)
 	}
 	wg.Wait()
-	for _, v := range []string{"Hùng", "Lan", "Mai"} {
+	for _, v := range []string{"jupiter", "James", "Linda"} {
 		wg.Add(1)
 		go write("user", v, &wg)
 	}
 	wg.Wait()
-	fmt.Printf("\nKết quả cuối: user=%q\n", cache["user"])
 }
