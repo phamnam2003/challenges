@@ -65,6 +65,7 @@ func main() {
 		kgo.FetchMaxWait(500*time.Millisecond),
 		kgo.SessionTimeout(45*time.Second),
 		kgo.HeartbeatInterval(3*time.Second),
+		kgo.AllowAutoTopicCreation(),
 		kgo.WithLogger(kgo.BasicLogger(os.Stdout, kgo.LogLevelInfo, func() string {
 			return "[kgo-kafka-consumer]"
 		})),
