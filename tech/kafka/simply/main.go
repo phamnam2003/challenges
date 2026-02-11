@@ -34,7 +34,7 @@ func main() {
 		kgo.RecordRetries(10),
 		kgo.RetryTimeout(30*time.Second),
 		kgo.RetryBackoffFn(func(i int) time.Duration {
-			return JitterBackoff(10*time.Microsecond, float64(i)*0.01)
+			return JitterBackoff(10*time.Millisecond, float64(i)*0.01)
 		}),
 		kgo.ProducerLinger(5*time.Millisecond),
 		kgo.ProducerBatchMaxBytes(1<<20), // 1 MB
