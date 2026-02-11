@@ -76,6 +76,7 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()
+	producer.Flush(ctx)
 
 	go func() {
 		orders := []Order{
@@ -104,6 +105,10 @@ func main() {
 
 	go func() {
 		for {
+			if ctx.Err() != nil {
+				log.Println("context canceled, stopping consumer")
+				return
+			}
 			fetches := consumer.PollFetches(ctx)
 			if errs := fetches.Errors(); len(errs) > 0 {
 				log.Println("fetch errors:", errs)
