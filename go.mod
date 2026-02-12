@@ -13,6 +13,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/twmb/franz-go v1.20.6
 	github.com/twmb/franz-go/pkg/kadm v1.17.2
+	github.com/twmb/franz-go/pkg/kmsg v1.12.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.13.0
 	go.opentelemetry.io/contrib/bridges/otelzap v0.13.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
@@ -80,7 +81,6 @@ require (
 	github.com/quic-go/quic-go v0.54.0 // indirect
 	github.com/scylladb/go-reflectx v1.0.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
-	github.com/twmb/franz-go/pkg/kmsg v1.12.0 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.38.0 // indirect
