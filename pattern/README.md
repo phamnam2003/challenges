@@ -1,83 +1,253 @@
-## Refactoring
+# 🎨 Design Patterns in Go
 
-### Clean Code
+> Master the ***Gang of Four*** design patterns through ***practical Go implementations***. Each pattern solves real-world problems with clean, reusable code.
 
-- The main purpose of `Refactoring` is to fight technical debt. It transform a mess into clean code and simple design.
+---
 
-  - **1. Clean code is obvious for other programming**: Poor variable naming, bloated classes and methods, magic numbers, all of that makes code `sloppy` and `difficult to grasp`.
+## 📚 What are Design Patterns?
 
-  - **2. Clean code doesn't contain duplication**
+**Design patterns** are ***proven solutions to common problems*** in object-oriented software design. They provide:
 
-  - **3. Clean code contains a minimal number of classes and other moving parts**: Less code is less stuff to keep in your head. Less code is fewer bugs. Code is liability, keep it short and simple
+- ✅ **Reusable solutions** — Tested approaches to recurring design problems
+- ✅ **Communication** — Common vocabulary for developers
+- ✅ **Best practices** — Encapsulate design knowledge and experience
+- ✅ **Flexibility** — Make code more adaptable to change
 
-  - **4. Clean code passes all tests**
+> *"Design Patterns: Elements of Reusable Object-Oriented Software"* — Gang of Four (Gamma, Helm, Johnson, Vlissides)
 
-  - **5. Clean code is easier and cheaper to maintain**
+---
 
-### Technical Debt
+## 🏗️ Pattern Categories
 
-- Causes of technical debt:
+### 1️⃣ **Behavioral Patterns** — How objects interact & distribute responsibility
 
-  - **1. Business pressure**: Sometime business circumstances might force you to roll out features before they're completely finished. In this case, patches and kludges will appear in the code to hide the unfinished parts of the project.
+| Pattern | Purpose | Real-World Example |
+|:---|:---|:---|
+| **Chain of Responsibility** | Pass request along chain of handlers | Medical clinic triage system |
+| **Command** | Encapsulate request as object | TV remote control commands |
+| **Iterator** | Access collection sequentially | Traversing user lists |
+| **Mediator** | Centralize object communication | Train station manager |
+| **Memento** | Capture & restore state | Undo/Redo functionality |
+| **Observer** | Notify multiple objects of state change | Price change notifications |
 
-  - **2. Lack of understanding of the consequences of technical debt**: Sometimes your employer might not understand that technical debt has “interest” insofar as it slows down the pace of development as debt accumulates. This can make it too difficult to dedicate the team’s time to refactoring because management doesn't see the value of it.
+**Get started:** See detailed explanations below ⬇️
 
-  - **3. Failing to combat the strict coherence of components**: This is when the project resembles a monolith rather than the product of individual modules. In this case, any changes to one part of the project will affect others. Team development is made more difficult because it’s difficult to isolate the work of individual members.
+---
 
-  - **4. Lack of tests**: The lack of immediate feedback encourages quick, but risky workarounds or kludges. In worst cases, these changes are implemented and deployed right into the production without any prior testing. The consequences can be catastrophic. For example, an innocent-looking hot fix might send a weird test email to thousands of customers or even worse, flush or corrupt an entire database.
+## 🔍 Behavioral Patterns Deep Dive
 
-  - **5. Lack of documentation**: This slows down the introduction of new people to the project and can grind development to a halt if key people leave the project.
+### 🏥 **Chain of Responsibility** (`behavioral/chain_of_responsibility/`)
 
-  - **6. Lack of interaction between team members**: If the knowledge base isn't distributed throughout the company, people will end up working with an outdated understanding of processes and information about the project. This situation can be exacerbated when junior developers are incorrectly trained by their mentors.
+**Problem:** How to handle a request through a ***sequence of handlers*** without knowing which handler will process it?
 
-  - **7. Long-term simultaneous development in several branches**: This can lead to the accumulation of technical debt, which is then increased when changes are merged. The more changes made in isolation, the greater the total technical debt.
+**Solution:** Create a chain where each handler decides to process or pass to next.
 
-  - **8. Delayed refactoring**: The project’s requirements are constantly changing and at some point it may become obvious that parts of the code are obsolete, have become cumbersome, and must be redesigned to meet new requirements. On the other hand, the project’s programmers are writing new code every day that works with the obsolete parts. Therefore, the longer refactoring is delayed, the more dependent code will have to be reworked in the future.
+**Real Example:** Hospital admission
+```
+Patient → Reception (check-in) → Doctor (diagnosis) → Cashier (payment)
+```
 
-  - **9. Lack of compliance monitoring**: This happens when everyone working on the project writes code as they see fit (i.e. the same way they wrote the last project).
+**Key Files:**
+- `patient.go` — Request object
+- `reception.go`, `doctor.go`, `cashier.go` — Handlers in chain
+- `medical.go` — Orchestrates the flow
 
-  - **10. Incompetence**: This is when the developer just doesn't know how to write decent code.
+**When to use:**
+- ✅ Multiple handlers for single request
+- ✅ Handler unknown at compile time
+- ✅ Flexible request processing
 
-### When to refactor
+---
 
-- **1.Rule Of Three**:
+### 📱 **Command** (`behavioral/command/`)
 
-  - 1. When you're doing something for the first time, just get it done.
- 
-  - 2. When you're doing something similar for the second time, cringe at having to repeat but do the same thing anyway.
- 
-  - 3. When you're doing something for the third time, start refactoring.
+**Problem:** How to ***encapsulate a request as an object*** so clients can parameterize it?
 
-- **2. When adding feature**:
+**Solution:** Represent action as a `Command` object with `Execute()` method.
 
-  - 1. Refactoring helps you understand other people's code. If you have to deal with something else's dirty code, try to refactor it first. Clean code is much easier to grasp. You will improve it it not only for yourself but also for those who use it after you.
+**Real Example:** TV remote control
+```
+Button.Press() → TurnOnCommand.Execute() → TV.On()
+```
 
-  - 2. Refactoring makes it easier to add new feature. It's much easier to make changes in clean code.
+**Key Files:**
+- `command.go` — Command interface
+- `on_command.go`, `off_command.go` — Concrete commands
+- `button.go` — Invoker (executes commands)
+- `tv.go` — Receiver (performs actual action)
 
-- **3. When fixing a bug**:
+**When to use:**
+- ✅ Parameterize objects with operations
+- ✅ Queue, log, or undo requests
+- ✅ Decouple sender from receiver
 
-  - 1. Bugs in code behave just like those in real life: they live in the darkest, dirties places in code. Clean your code and errors will practically discover themselves.
+---
 
-  - 2. Managers appreciate proactive refactoring as it eliminates the need for special refactoring tasks later. Happy bosses make happy programmers
+### 📋 **Iterator** (`behavioral/iterator/`)
 
-- **4. During the code review**:
+**Problem:** How to ***access collection elements sequentially*** without exposing underlying structure?
 
-  - 1. The code review maybe the last chance to tidy up the code before it becomes available to the public.
+**Solution:** Create iterator that encapsulates traversal logic.
 
-  - 2. It's best to perform such reviews in a pair with an author. This way you could fix simple problems quickly and gauge the time for fixing the more difficult ones.
+**Real Example:** User collection iteration
+```
+for user in userIterator.Next() {
+    process(user)
+}
+```
 
-### How to refactor
+**Key Files:**
+- `iterator.go` — Iterator interface
+- `user_iterator.go` — Concrete iterator implementation
+- `user_collection.go` — Collection with iterator
+- `user.go` — Element object
 
-- **1. The code should become cleaner**:
+**When to use:**
+- ✅ Access collections uniformly
+- ✅ Hide internal structure
+- ✅ Support multiple traversals
 
-  - 1. If the code remains just as unclean after refactoring... Well, I'm sorry, but you've just wasted an hour of your life. Try to figure out why this happened.
+---
 
-  - 2. It frequently happens when you move away from refactoring with small changes and mix a who brunch of refactoring into one big change. So it's very easy to lose your mind, especially if you have a time limit.
+### 🚂 **Mediator** (`behavioral/mediator/`)
 
-  - 3. But it can also happen when working with extremely sloppy code. Whatever you improve, the code as a whole remains disaster.
+**Problem:** How to ***reduce coupling*** when objects need to communicate extensively?
 
-  - 4. In this case, it's a worthwhile to think about completely rewriting parts of the code. But before that, you should have written tests and set aside a good chunk of time. Otherwise, you'll end up with the kinds of result we talked about in the first paragraph.
+**Solution:** Introduce mediator object that encapsulates communication.
 
-- **2. New functionality shouldn't be created during refactoring**: Don't mix refactoring and direct development of new features. Try to separate these processes at least within the confines of individual commits.
+**Real Example:** Train station coordination
+```
+Trains ←→ Station Manager ←→ Track Assignment
+```
 
-- **3. All existing tests must pass after refactoring**
+**Key Files:**
+- `mediator.go` — Mediator interface
+- `station_manager.go` — Concrete mediator
+- `train.go`, `passenger_train.go`, `freight_train.go` — Colleagues
+
+**When to use:**
+- ✅ Complex object interactions
+- ✅ Reduce interdependencies
+- ✅ Centralize control logic
+
+---
+
+### 💾 **Memento** (`behavioral/memento/`)
+
+**Problem:** How to ***capture & externalize state*** without violating encapsulation?
+
+**Solution:** Create memento to save object state, restored later via caretaker.
+
+**Real Example:** Undo/Redo functionality
+```
+editor.Save() → Memento(state) → Caretaker.Store() → Undo() → Restore(Memento)
+```
+
+**Key Files:**
+- `memento.go` — Snapshot of state
+- `originator.go` — Object whose state is saved
+- `caretaker.go` — Manages mementos
+
+**When to use:**
+- ✅ Undo/Redo functionality
+- ✅ State restoration
+- ✅ Preserve encapsulation
+
+---
+
+### 👁️ **Observer** (`behavioral/observer/`)
+
+**Problem:** How to ***notify multiple objects*** when state changes without coupling?
+
+**Solution:** Define one-to-many dependency so when subject changes, observers auto-update.
+
+**Real Example:** Price change notifications
+```
+Item.setPrice(100) → notifies all Customer subscribers
+```
+
+**Key Files:**
+- `item.go` — Subject (observable)
+- `customer.go` — Observer (listener)
+- Dependencies & state management
+
+**When to use:**
+- ✅ Event-driven architectures
+- ✅ Real-time notifications
+- ✅ Loose coupling requirement
+
+---
+
+## 🚀 How to Explore Patterns
+
+### 1️⃣ **Read Pattern Code**
+```bash
+cat behavioral/observer/main.go
+```
+
+### 2️⃣ **Run the Example**
+```bash
+cd behavioral/observer
+go run main.go
+```
+
+### 3️⃣ **Understand the Flow**
+- Identify the problem being solved
+- See how pattern structures the solution
+- Notice how coupling is reduced
+
+### 4️⃣ **Apply to Your Code**
+- Recognize pattern usage in your projects
+- Refactor problematic code using patterns
+- Reuse in future projects
+
+---
+
+## 💡 Key Principles
+
+| Principle | Meaning |
+|:---|:---|
+| **Open/Closed** | Open for extension, closed for modification |
+| **Single Responsibility** | One reason to change |
+| **Dependency Inversion** | Depend on abstractions, not concretions |
+| **Interface Segregation** | Many specific interfaces vs one general |
+| **Composition over Inheritance** | Prefer composition for flexibility |
+
+---
+
+## 🗺️ Pattern Selection Guide
+
+**Need to share data between objects?** → Observer
+**Need to decouple sender from receiver?** → Command, Mediator
+**Need to traverse collections?** → Iterator
+**Need to save/restore state?** → Memento
+**Need sequential processing?** → Chain of Responsibility
+
+---
+
+## 📖 Coming Soon
+
+- 🏗️ **Creational Patterns** — Singleton, Factory, Abstract Factory, Builder
+- 🧩 **Structural Patterns** — Adapter, Bridge, Composite, Decorator, Facade, Proxy
+
+---
+
+## 🎯 Learning Tips
+
+1. **Master one pattern at a time** — Don't try to learn all at once
+2. **Understand the problem first** — Then see how pattern solves it
+3. **See real examples** — Run code and modify it
+4. **Notice the coupling reduction** — That's the main benefit
+5. **Apply patterns wisely** — Avoid over-engineering
+
+---
+
+## 📚 Further Reading
+
+- *Design Patterns: Elements of Reusable Object-Oriented Software* — Gang of Four
+- *Head First Design Patterns* — Freeman, Freeman, Bates, Sierra
+- [Refactoring Guru Patterns](https://refactoring.guru/design-patterns)
+
+---
+
+**Happy Pattern Learning!** 🚀
