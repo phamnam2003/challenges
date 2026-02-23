@@ -16,7 +16,7 @@ func main() {
 	logger := logger.CreateLogger("info")
 
 	cluster := sccore.CreateCluster(gocql.Quorum, "catalog", "localhost:9042")
-	session, err := gocql.NewSession(*cluster)
+	session, err := gocqlx.WrapSession(cluster.CreateSession())
 	if err != nil {
 		logger.Fatal("unable to connect to scylla", zap.Error(err))
 	}
@@ -32,19 +32,19 @@ func main() {
 	selectQueryX(session, logger)
 }
 
-func deleteQueryX(session *gocql.Session, firstName string, lastName string, logger *zap.Logger) {
+func deleteQueryX(session gocqlx.Session, firstName string, lastName string, logger *zap.Logger) {
 	logger.Info("Deleting " + firstName + "......")
 	r := Record{
 		FirstName: firstName,
 		LastName:  lastName,
 	}
-	err := gocqlx.Query(session.Query(stmts.del.stmt), stmts.del.names).BindStruct(r).ExecRelease()
+	err := session.Query(stmts.del.stmt, stmts.del.names).BindStruct(r).ExecRelease()
 	if err != nil {
 		logger.Error("delete catalog.mutant_data", zap.Error(err))
 	}
 }
 
-func insertQueryX(session *gocql.Session, firstName, lastName, address, pictureLocation string, logger *zap.Logger) {
+func insertQueryX(session gocqlx.Session, firstName, lastName, address, pictureLocation string, logger *zap.Logger) {
 	logger.Info("Inserting " + firstName + "......")
 	r := Record{
 		FirstName:       firstName,
@@ -52,16 +52,16 @@ func insertQueryX(session *gocql.Session, firstName, lastName, address, pictureL
 		Address:         address,
 		PictureLocation: pictureLocation,
 	}
-	err := gocqlx.Query(session.Query(stmts.ins.stmt), stmts.ins.names).BindStruct(r).ExecRelease()
+	err := session.Query(stmts.ins.stmt, stmts.ins.names).BindStruct(r).ExecRelease()
 	if err != nil {
 		logger.Error("insert catalog.mutant_data", zap.Error(err))
 	}
 }
 
-func selectQueryX(session *gocql.Session, logger *zap.Logger) {
+func selectQueryX(session gocqlx.Session, logger *zap.Logger) {
 	logger.Info("Displaying Results:")
 	var rs []Record
-	err := gocqlx.Query(session.Query(stmts.sel.stmt), stmts.sel.names).SelectRelease(&rs)
+	err := session.Query(stmts.sel.stmt, stmts.sel.names).SelectRelease(&rs)
 	if err != nil {
 		logger.Warn("select catalog.mutant", zap.Error(err))
 		return
