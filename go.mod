@@ -3,6 +3,7 @@ module github.com/phamnam2003/challenges
 go 1.24.0
 
 require (
+	github.com/aws/aws-sdk-go v1.55.8
 	github.com/gin-gonic/gin v1.11.0
 	github.com/gocql/gocql v1.7.0
 	github.com/google/uuid v1.6.0
@@ -62,6 +63,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
