@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"log"
+	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -15,10 +18,11 @@ import (
 )
 
 var (
-	brokers  = flag.String("brokers", "localhost:9092", "comma delimited list of seed brokers")
-	method   = flag.String("method", "plain", "sasl mechanism to use (plain, scram-sha-512, scram-sha-256, aws-msk-iam)")
-	username = flag.String("username", "", "sasl username")
-	password = flag.String("password", "", "sasl password")
+	brokers   = flag.String("brokers", "localhost:9092", "comma delimited list of seed brokers")
+	method    = flag.String("method", "plain", "sasl mechanism to use (plain, scram-sha-512, scram-sha-256, aws-msk-iam)")
+	enableTLS = flag.Bool("tls", false, "enable TLS")
+	username  = flag.String("username", "", "sasl username")
+	password  = flag.String("password", "", "sasl password")
 )
 
 func main() {
@@ -27,11 +31,13 @@ func main() {
 		log.Fatal("username and password not provided yet")
 	}
 
-	// tlsDialer := &tls.Dialer{NetDialer: &net.Dialer{Timeout: 10 * time.Second}}
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(strings.Split(*brokers, ",")...),
-		// kgo.Dialer(tlsDialer.DialContext),
 		kgo.WithLogger(kgo.BasicLogger(os.Stdout, kgo.LogLevelInfo, nil)),
+	}
+	if *enableTLS {
+		tlsDialer := &tls.Dialer{NetDialer: &net.Dialer{Timeout: 10 * time.Second}}
+		opts = append(opts, kgo.Dialer(tlsDialer.DialContext))
 	}
 
 	switch *method {
