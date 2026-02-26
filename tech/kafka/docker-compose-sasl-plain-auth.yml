@@ -6,7 +6,7 @@ services:
     ports:
       - "9092:9092"
     volumes:
-      - ./jaas.conf:/etc/kafka/jaas.conf
+      - ./jaas_plain.conf:/etc/kafka/jaas.conf
     environment:
       CLUSTER_ID: "kraft-cluster-1"
       KAFKA_NODE_ID: 1
