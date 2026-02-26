@@ -1,7 +1,7 @@
 services:
   kafka:
     image: confluentinc/cp-kafka:7.7.7
-    container_name: kafka
+    container_name: kafka_sasl_plain
     hostname: kafka
     ports:
       - "9092:9092"
@@ -28,7 +28,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
   akhq:
     image: tchiotludo/akhq:0.24.0
-    container_name: akhq
+    container_name: akhq_sasl_plain
     depends_on:
       - kafka
     restart: unless-stopped
