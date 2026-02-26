@@ -2,15 +2,12 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"flag"
 	"log"
-	"net"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/sasl/aws"
 	"github.com/twmb/franz-go/pkg/sasl/plain"
@@ -26,22 +23,16 @@ var (
 
 func main() {
 	flag.Parse()
-	if *username == "" || *password == "" {
+	if *method != "aws-msk-iam" && (*username == "" || *password == "") {
 		log.Fatal("username and password not provided yet")
 	}
 
-	tlsDialer := &tls.Dialer{NetDialer: &net.Dialer{Timeout: 10 * time.Second}}
+	// tlsDialer := &tls.Dialer{NetDialer: &net.Dialer{Timeout: 10 * time.Second}}
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(strings.Split(*brokers, ",")...),
-		kgo.Dialer(tlsDialer.DialContext),
+		// kgo.Dialer(tlsDialer.DialContext),
 		kgo.WithLogger(kgo.BasicLogger(os.Stdout, kgo.LogLevelInfo, nil)),
 	}
-
-	cl, err := kgo.NewClient(opts...)
-	if err != nil {
-		log.Fatalf("unable to create client: %v", err)
-	}
-	defer cl.Close()
 
 	switch *method {
 	case "plain":
@@ -63,26 +54,33 @@ func main() {
 		}.AsSha512Mechanism()))
 
 	case "aws-msk-iam":
-		sess, err := session.NewSession()
+		ctx := context.Background()
+		cfg, err := config.LoadDefaultConfig(ctx)
 		if err != nil {
-			log.Fatalf("unable to create aws session: %v", err)
+			log.Fatalf("unable to load AWS config: %v", err)
 		}
 
 		opts = append(opts, kgo.SASL(aws.ManagedStreamingIAM(func(ctx context.Context) (aws.Auth, error) {
-			val, err := sess.Config.Credentials.GetWithContext(ctx)
+			creds, err := cfg.Credentials.Retrieve(ctx)
 			if err != nil {
 				return aws.Auth{}, err
 			}
 			return aws.Auth{
-				AccessKey:    val.AccessKeyID,
-				SecretKey:    val.SecretAccessKey,
-				SessionToken: val.SessionToken,
-				UserAgent:    "",
+				AccessKey:    creds.AccessKeyID,
+				SecretKey:    creds.SecretAccessKey,
+				SessionToken: creds.SessionToken,
+				UserAgent:    "franz-go-kafka/plain-auth",
 			}, nil
 		})))
 	default:
 		log.Fatalf("not support sasl method %s", *method)
 	}
+
+	cl, err := kgo.NewClient(opts...)
+	if err != nil {
+		log.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Close()
 
 	if err = cl.Ping(context.Background()); err != nil {
 		log.Fatalf("unable to ping cluster: %v", err)
