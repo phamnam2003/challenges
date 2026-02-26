@@ -1,0 +1,49 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.7.7
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+    volumes:
+      - ./jaas.conf:/etc/kafka/jaas.conf
+    environment:
+      CLUSTER_ID: "kraft-cluster-1"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: SASL_PLAINTEXT://kafka:29092,SASL_PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka:29092,SASL_PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_PLAINTEXT_HOST:SASL_PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/jaas.conf"
+
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+  akhq:
+    image: tchiotludo/akhq:0.24.0
+    container_name: akhq
+    depends_on:
+      - kafka
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            local-kafka:
+              properties:
+                bootstrap.servers: "kafka:29092"
+                security.protocol: "SASL_PLAINTEXT"
+                sasl.mechanism: "PLAIN"
+                sasl.jaas.config: >
+                  org.apache.kafka.common.security.plain.PlainLoginModule required
+                  username="admin"
+                  password="admin-secret";
