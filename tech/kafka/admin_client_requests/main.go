@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -47,6 +48,7 @@ func demoKadm(ctx context.Context, cl *kgo.Client) {
 		demoKadm(ctx, cl)
 	}
 }
+
 func demoKmsg(ctx context.Context, cl *kgo.Client) {
 	// Create a topic.
 	{
@@ -99,6 +101,7 @@ func main() {
 	cl, err := kgo.NewClient(
 		kgo.SeedBrokers(strings.Split(*seedBrokers, ",")...),
 		kgo.MaxVersions(kversion.V2_4_0()),
+		kgo.WithLogger(kgo.BasicLogger(os.Stdout, kgo.LogLevelInfo, nil)),
 	)
 	if err != nil {
 		log.Fatalf("unable to create client: %v", err)
