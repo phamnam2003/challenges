@@ -44,7 +44,7 @@ func demoInjectError() {
 		kfake.SeedTopics(1, "inject-error-kfake-topic"),
 	)
 	if err != nil {
-		log.Fatalf("unable to create cluster: %v", err)
+		log.Fatalf("unable to create kfake cluster: %v", err)
 	}
 	defer c.Close()
 
@@ -53,7 +53,7 @@ func demoInjectError() {
 	var intercepted atomic.Bool
 	c.ControlKey(int16(kmsg.Produce), func(kreq kmsg.Request) (kmsg.Response, error, bool) {
 		intercepted.Store(true)
-		log.Println("intercepted a produce request, injecting NOT_LEADER_FOR_PARTITION error")
+		log.Println("\t[control] intercepted produce, returning NOT_LEADER_FOR_PARTITION")
 
 		req := kreq.(*kmsg.ProduceRequest)
 		resp := req.ResponseKind().(*kmsg.ProduceResponse)
@@ -78,7 +78,7 @@ func demoInjectError() {
 		kgo.WithLogger(kgo.BasicLogger(os.Stdout, kgo.LogLevelInfo, nil)),
 	)
 	if err != nil {
-		log.Fatalf("unable to create client: %v", err)
+		log.Fatalf("unable create client with kfake cluster: %v", err)
 	}
 	defer cl.Close()
 
@@ -86,14 +86,14 @@ func demoInjectError() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	r := &kgo.Record{Value: []byte("hello, kfake!")}
-	if err := cl.ProduceSync(ctx, r); err != nil {
-		log.Fatalf("unexpected produce error: %v", err)
+	r := &kgo.Record{Value: []byte("record produce by kfake with topic inject-error-kfake-topic")}
+	if err := cl.ProduceSync(ctx, r).FirstErr(); err != nil {
+		log.Fatalf("produce failed: %v", err)
 	}
 
-	log.Printf("  produced to partition %d offset %d", r.Partition, r.Offset)
-	log.Printf("  control intercepted first attempt: %v", intercepted.Load())
-	log.Println("  kgo retried automatically and succeeded")
+	log.Printf("\tproduced to partition %d offset %d\n", r.Partition, r.Offset)
+	log.Printf("\tcontrol intercepted first attempt: %v\n", intercepted.Load())
+	log.Println("\tkgo retried automatically and succeeded")
 }
 
 // demoObserve uses KeepControl to persistently observe every request without
