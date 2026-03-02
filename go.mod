@@ -22,6 +22,7 @@ require (
 	github.com/twmb/franz-go/plugin/kprom v1.3.0
 	github.com/twmb/franz-go/plugin/kslog v1.0.0
 	github.com/twmb/franz-go/plugin/kzap v1.1.2
+	github.com/twmb/tlscfg v1.3.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.15.0
 	go.opentelemetry.io/contrib/bridges/otelzap v0.15.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0
