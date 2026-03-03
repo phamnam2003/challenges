@@ -1,17 +1,23 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/sasl/aws"
+	"github.com/twmb/franz-go/pkg/sasl/plain"
+	"github.com/twmb/franz-go/pkg/sasl/scram"
 	"github.com/twmb/franz-go/plugin/kprom"
 	"github.com/twmb/tlscfg"
 )
@@ -31,6 +37,11 @@ var (
 	linger              = flag.Duration("linger", 0, "if non-zero, linger to use when producing")
 	noIdempotency       = flag.Bool("no-idempotency", false, "if true, disable idempotency (force 1 produce rps)")
 	noIdempotentMaxReqs = flag.Int("max-inflight-produce-per-broker", 5, "if idempotency is disabled, the number of produce requests to allow per broker")
+	poolProduce         = flag.Bool("pool", false, "if true, use a sync.Pool to reuse record structs/slices (producing)")
+
+	psync     = flag.Bool("psync", false, "produce synchronously")
+	batchRecs = flag.Int("batch-recs", 1, "number of records to create before produce calls")
+	pgoros    = flag.Int("pgoros", 1, "number of goroutines concurrently spawn to produce")
 
 	caFile   = flag.String("ca-cert", "", "if non-empty, path to CA cert to use for TLS (implies -tl")
 	certFile = flag.String("client-cert", "", "if non-empty, path to client cert to use for TLS (requires -client-key, implies -tls)")
@@ -42,9 +53,23 @@ var (
 
 	logLevel = flag.String("log-level", "", "if non-empty, the log level to use (debug, info, warn, error)")
 
+	saslMethod = flag.String("sasl-method", "", "if non-empty, sasl method to use (must specify all opts; spports plain, scram-sha-256, scram-sha-512, aws-msk-iam)")
+	saslUser   = flag.String("sasl-user", "", "if non-empty, the sasl username to use")
+	saslPass   = flag.String("sasl-pass", "", "if non-empty, the sasl password to use")
+
 	rateRecs    int64
 	rateBytes   int64
 	staticValue []byte
+	staticPool  = sync.Pool{
+		New: func() any {
+			return kgo.SliceRecord(staticValue)
+		},
+	}
+	p = sync.Pool{
+		New: func() any {
+			return kgo.SliceRecord(make([]byte, *recordBytes))
+		},
+	}
 )
 
 func printRate() {
@@ -64,6 +89,20 @@ func formatValue(num int64, v []byte) {
 	for n != len(v) {
 		n += copy(v[n:], b)
 	}
+}
+
+func newRecord(num int64) *kgo.Record {
+	var r *kgo.Record
+	if *useStaticValue {
+		return staticPool.Get().(*kgo.Record)
+	} else if *poolProduce {
+		r = p.Get().(*kgo.Record)
+	} else {
+		r = kgo.SliceRecord(make([]byte, *recordBytes))
+	}
+	formatValue(num, r.Value)
+
+	return r
 }
 
 func main() {
@@ -93,6 +132,7 @@ func main() {
 		// back because snappy deflation will balloon our memory usage.
 		kgo.FetchMaxBytes(5 << 20),
 		kgo.ProducerBatchMaxBytes(int32(*batchMaxBytes)),
+		kgo.AllowAutoTopicCreation(),
 	}
 
 	if *noIdempotency {
@@ -163,5 +203,137 @@ func main() {
 		} else {
 			opts = append(opts, kgo.DialTLSConfig(new(tls.Config)))
 		}
+	}
+
+	if *saslMethod != "" || *saslUser != "" || *saslPass != "" {
+		if *saslMethod == "" || *saslUser == "" || *saslPass == "" {
+			log.Fatal("all of -sasl-method, -sasl-user, -sasl-pass must be specified if any are")
+		}
+
+		method := strings.ToLower(*saslMethod)
+		method = strings.ReplaceAll(method, "-", "")
+		method = strings.ReplaceAll(method, "_", "")
+		switch method {
+		case "plain":
+			opts = append(opts, kgo.SASL(plain.Auth{
+				User: *saslUser,
+				Pass: *saslPass,
+			}.AsMechanism()))
+		case "scramsha256":
+			opts = append(opts, kgo.SASL(scram.Auth{
+				User: *saslUser,
+				Pass: *saslPass,
+			}.AsSha256Mechanism()))
+		case "scramsha512":
+			opts = append(opts, kgo.SASL(scram.Auth{
+				User: *saslUser,
+				Pass: *saslPass,
+			}.AsSha512Mechanism()))
+		case "awsmskiam":
+			opts = append(opts, kgo.SASL(aws.Auth{
+				AccessKey: *saslUser,
+				SecretKey: *saslPass,
+			}.AsManagedStreamingIAMMechanism()))
+		default:
+			log.Fatalf("unsupported sasl method: %s", *saslMethod)
+		}
+	}
+
+	cl, err := kgo.NewClient(opts...)
+	if err != nil {
+		log.Fatalf("unable create kgo client: %v", err)
+	}
+
+	if *pprofPort != "" {
+		go func() {
+			err := http.ListenAndServe(*pprofPort, nil)
+			if err != nil {
+				log.Fatalf("pprof server failed: %v", err)
+			}
+		}()
+	}
+
+	go printRate()
+
+	switch {
+	case *consume:
+		for {
+			fs := cl.PollFetches(context.Background())
+			fs.EachError(func(topic string, partition int32, err error) {
+				if err != nil {
+					log.Fatalf("error in fetch for topic %s partition %d: %v", topic, partition, err)
+				}
+			})
+			var recs, bytes int64
+			fs.EachRecord(func(r *kgo.Record) {
+				recs++
+				bytes += int64(len(r.Value))
+			})
+			atomic.AddInt64(&rateRecs, recs)
+			atomic.AddInt64(&rateBytes, bytes)
+		}
+
+	case !*psync:
+		var num atomic.Int64
+		for range *pgoros {
+			go func() {
+				var recs []*kgo.Record
+				for {
+					recs = recs[:0]
+					for range *batchRecs {
+						recs = append(recs, newRecord(num.Add(1)))
+					}
+					for _, r := range recs {
+						cl.Produce(context.Background(), r, func(r *kgo.Record, err error) {
+							if *useStaticValue {
+								staticPool.Put(r)
+							} else if *poolProduce {
+								p.Put(r)
+							}
+							if err != nil {
+								log.Fatalf("produce record failed: %v", err)
+							}
+							atomic.AddInt64(&rateRecs, 1)
+							atomic.AddInt64(&rateBytes, int64(*recordBytes))
+						})
+					}
+				}
+			}()
+		}
+		select {}
+
+	default:
+		var num atomic.Int64
+		for range *pgoros {
+			go func() {
+				var recs []*kgo.Record
+				for {
+					recs = recs[:0]
+					for range *batchRecs {
+						recs = append(recs, newRecord(num.Add(1)))
+					}
+
+					ress := cl.ProduceSync(context.Background(), recs...)
+					go func() {
+						for _, res := range ress {
+							r, err := res.Record, res.Err
+							if *useStaticValue {
+								staticPool.Put(r)
+							} else if *poolProduce {
+								p.Put(r)
+							}
+
+							if err != nil {
+								log.Fatalf("produce error: %v", err)
+							}
+							atomic.AddInt64(&rateRecs, 1)
+							atomic.AddInt64(&rateBytes, int64(*recordBytes))
+						}
+					}()
+				}
+			}()
+		}
+		select {}
+
 	}
 }
