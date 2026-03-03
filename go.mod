@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.10
+	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/gin-gonic/gin v1.11.0
 	github.com/gocql/gocql v1.7.0
 	github.com/google/uuid v1.6.0
