@@ -14,6 +14,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/scylladb/gocqlx/v2 v2.8.0
+	github.com/segmentio/kafka-go v0.4.50
 	github.com/stretchr/testify v1.11.1
 	github.com/twmb/franz-go v1.20.7
 	github.com/twmb/franz-go/pkg/kadm v1.17.2
