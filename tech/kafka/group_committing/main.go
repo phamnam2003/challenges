@@ -138,7 +138,9 @@ func consume(cl *kgo.Client, style int) {
 			return
 		}
 		fetches.EachError(func(t string, p int32, err error) {
-			log.Fatalf("fetch error on topic %s, partition %d: %v", t, p, err)
+			if err != nil {
+				log.Fatalf("fetch error on topic %s, partition %d: %v", t, p, err)
+			}
 		})
 
 		switch style {
