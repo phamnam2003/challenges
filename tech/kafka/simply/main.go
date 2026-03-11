@@ -32,7 +32,7 @@ func main() {
 		kgo.ClientID("simply-kafka-producer"),
 		kgo.RequiredAcks(kgo.AllISRAcks()),
 		kgo.RecordRetries(10),
-		kgo.RetryTimeout(30*time.Second),
+		kgo.RetryTimeout(120*time.Second),
 		kgo.RetryBackoffFn(func(i int) time.Duration {
 			return JitterBackoff(10*time.Millisecond, float64(i)*0.01)
 		}),
