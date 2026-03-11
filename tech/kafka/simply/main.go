@@ -43,6 +43,8 @@ func main() {
 		// compression available: None, Gzip, Snappy, Lz4, Zstd.
 		// The Best of high workload is Zstd, best to balance CPU and network is Snappy
 		kgo.ProducerBatchCompression(kgo.SnappyCompression()),
+		kgo.MetadataMaxAge(60*time.Second),
+		// kgo.RecordDeliveryTimeout(2*time.Minute),
 		kgo.WithLogger(kgo.BasicLogger(os.Stdout, kgo.LogLevelInfo, func() string {
 			return "[kgo-kafka-producer]"
 		})),
