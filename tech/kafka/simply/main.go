@@ -64,6 +64,8 @@ func main() {
 		kgo.Balancers(kgo.CooperativeStickyBalancer()),
 		kgo.FetchMaxPartitionBytes(1<<20),
 		kgo.FetchMinBytes(1),
+		kgo.FetchMaxBytes(50<<20),       // 50 MB, it is default value
+		kgo.BrokerMaxReadBytes(100<<20), // 100 MB, it is default value
 		kgo.FetchMaxWait(500*time.Millisecond),
 		kgo.SessionTimeout(45*time.Second),
 		kgo.HeartbeatInterval(3*time.Second),
