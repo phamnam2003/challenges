@@ -34,7 +34,7 @@ type splitConsume struct {
 	consumers map[string]map[int32]pconsumer
 }
 
-func (pc pconsumer) consume(topic string, partition int32) {
+func (pc pconsumer) consume(ctx context.Context, topic string, partition int32) {
 	log.Printf("starting, t %s p %d", topic, partition)
 	defer log.Printf("killing, t %s p %d", topic, partition)
 
@@ -46,8 +46,16 @@ func (pc pconsumer) consume(topic string, partition int32) {
 	defer ticket.Stop()
 
 	for {
+		if ctx.Err() != nil {
+			log.Printf("context was error: %v", ctx.Err())
+			return
+		}
+
 		select {
 		case <-pc.quit:
+			return
+
+		case <-ctx.Done():
 			return
 
 		case recs := <-pc.recs:
@@ -71,7 +79,7 @@ func (pc pconsumer) consume(topic string, partition int32) {
 	}
 }
 
-func (s *splitConsume) assigned(_ context.Context, cl *kgo.Client, assigned map[string][]int32) {
+func (s *splitConsume) assigned(ctx context.Context, cl *kgo.Client, assigned map[string][]int32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -86,7 +94,7 @@ func (s *splitConsume) assigned(_ context.Context, cl *kgo.Client, assigned map[
 				recs: make(chan []*kgo.Record, 10),
 			}
 			s.consumers[topic][partition] = pc
-			go pc.consume(topic, partition)
+			go pc.consume(ctx, topic, partition)
 		}
 	}
 }
