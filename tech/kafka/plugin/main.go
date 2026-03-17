@@ -71,7 +71,25 @@ func main() {
 	// Configure Prometheus metrics. Metrics hooks can be used alongside
 	// any logger - they are independent. Use port 0 to skip metrics.
 	if *metricsPort > 0 {
-		metrics := kprom.NewMetrics("kgo")
+		metrics := kprom.NewMetrics("kgo",
+			kprom.GoCollectors(),
+			kprom.FetchAndProduceDetail(
+				kprom.Batches,
+				kprom.ByTopic,
+				kprom.ByNode,
+				kprom.CompressedBytes,
+				kprom.ConsistentNaming,
+				kprom.Records,
+				kprom.UncompressedBytes,
+			),
+			kprom.Histograms(
+				kprom.ReadTime,
+				kprom.WriteTime,
+				kprom.RequestDurationE2E,
+				kprom.RequestThrottled,
+				kprom.WriteWait,
+			),
+		)
 		opts = append(opts, kgo.WithHooks(metrics))
 
 		go func() {
