@@ -81,7 +81,10 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()
-	producer.Flush(ctx)
+	err = producer.Flush(ctx)
+	if err != nil {
+		log.Fatal("failed to flush producer: ", err)
+	}
 
 	go func() {
 		orders := []Order{
