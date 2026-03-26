@@ -41,9 +41,9 @@ func (pc pconsumer) consume(ctx context.Context, topic string, partition int32) 
 	var (
 		nrecs  int
 		nbytes int
-		ticket = time.NewTicker(time.Second)
+		ticker = time.NewTicker(time.Second)
 	)
-	defer ticket.Stop()
+	defer ticker.Stop()
 
 	for {
 		if ctx.Err() != nil {
@@ -66,7 +66,7 @@ func (pc pconsumer) consume(ctx context.Context, topic string, partition int32) 
 				atomic.AddInt64(&globalBytes, int64(len(rec.Value)))
 			}
 
-		case t := <-ticket.C:
+		case t := <-ticker.C:
 			log.Printf("[%s] t %s p %d consumed %0.2f MiB/s, %0.2fk records/s",
 				t.Format("15:04:05.999"),
 				topic,
