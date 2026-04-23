@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	brokers  = flag.String("brokers", "localhost:8081", "comma delimited list of seed brokers")
+	brokers  = flag.String("brokers", "localhost:9092", "comma delimited list of seed brokers")
 	topic    = flag.String("topic", "schema-registry-topic", "topic to produce to")
 	registry = flag.String("registry", "localhost:8081", "schema registry port to talk to")
 
