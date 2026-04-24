@@ -17,6 +17,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -83,26 +84,28 @@ func inputProducer() {
 		e := kgo.AbortingFirstErrPromise(cl)
 		for i := range 10 {
 			cl.Produce(ctx, kgo.StringRecord(msg+strconv.Itoa(i)), e.Promise())
-			// Always evaluate e.Err() to avoid short-circuit issues
-			// (e.g. doCommit && perr==nil would skip Err() if !doCommit).
-			perr := e.Err()
-			commit := kgo.TransactionEndTry(doCommit && perr == nil)
-
-			switch err := cl.EndTransaction(ctx, commit); err {
-			case nil:
-				if doCommit {
-					log.Println("transaction committed")
-				} else {
-					log.Println("transaction aborted")
-				}
-			case kerr.OperationNotAttempted:
-				if err := cl.EndTransaction(ctx, kgo.TryAbort); err != nil {
-					log.Fatalf("unable to abort transaction after failed commit: %v", err)
-				}
-			default:
-				log.Fatalf("unable to end transaction: %v", err)
-			}
 		}
+		// Always evaluate e.Err() to avoid short-circuit issues
+		// (e.g. doCommit && perr==nil would skip Err() if !doCommit).
+		perr := e.Err()
+		commit := kgo.TransactionEndTry(doCommit && perr == nil)
+
+		switch err := cl.EndTransaction(ctx, commit); err {
+		case nil:
+			if doCommit {
+				log.Println("transaction committed")
+			} else {
+				log.Println("transaction aborted")
+			}
+		case kerr.OperationNotAttempted:
+			if err := cl.EndTransaction(ctx, kgo.TryAbort); err != nil {
+				log.Fatalf("unable to abort transaction after failed commit: %v", err)
+			}
+		default:
+			log.Fatalf("unable to end transaction: %v", err)
+		}
+
+		time.Sleep(2 * time.Second)
 	}
 }
 
