@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -13,10 +14,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 var (
-	mode         = flag.String("mode", "minio", "mode to run object storage: minio | aws | seaweedfs | rustfs")
 	endpoint     = flag.String("endpoint", "http://localhost:9000", "endpoint for S3-compatible storage")
 	accessKey    = flag.String("access-key", "minioadmin", "access key for S3-compatible storage")
 	secretKey    = flag.String("secret-key", "minioadmin", "secret key for S3-compatible storage")
@@ -175,4 +176,145 @@ func ListObjects(ctx context.Context, client *s3.Client, bucketName string) ([]s
 		keys = append(keys, *obj.Key)
 	}
 	return keys, nil
+}
+
+// ListObjectsWithPrefix lists objects and "subdirectories" under a given prefix.
+// Returns object keys and common prefixes (virtual folders).
+func ListObjectsWithPrefix(ctx context.Context, client *s3.Client, bucketName, prefix string) (keys []string, prefixes []string, err error) {
+	delimiter := "/"
+	output, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket:    &bucketName,
+		Prefix:    &prefix,
+		Delimiter: &delimiter,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, obj := range output.Contents {
+		keys = append(keys, *obj.Key)
+	}
+	for _, cp := range output.CommonPrefixes {
+		prefixes = append(prefixes, *cp.Prefix)
+	}
+	return keys, prefixes, nil
+}
+
+// HeadObject retrieves object metadata without downloading the body.
+func HeadObject(ctx context.Context, client *s3.Client, bucketName, objectKey string) (*s3.HeadObjectOutput, error) {
+	return client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: &bucketName,
+		Key:    &objectKey,
+	})
+}
+
+// CopyObject copies an object within the same bucket or across buckets.
+// copySource format: "source-bucket/source-key"
+func CopyObject(ctx context.Context, client *s3.Client, copySource, destBucket, destKey string) error {
+	_, err := client.CopyObject(ctx, &s3.CopyObjectInput{
+		Bucket:     &destBucket,
+		Key:        &destKey,
+		CopySource: &copySource,
+	})
+	return err
+}
+
+// MultipartUpload uploads data in parts. partSize is the size of each part in bytes (minimum 5MB).
+func MultipartUpload(ctx context.Context, client *s3.Client, bucketName, objectKey string, data []byte, partSize int) error {
+	createResp, err := client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+		Bucket: &bucketName,
+		Key:    &objectKey,
+	})
+	if err != nil {
+		return err
+	}
+	uploadID := createResp.UploadId
+
+	var completedParts []types.CompletedPart
+	partNumber := int32(1)
+
+	for start := 0; start < len(data); start += partSize {
+		end := start + partSize
+		if end > len(data) {
+			end = len(data)
+		}
+
+		uploadResp, err := client.UploadPart(ctx, &s3.UploadPartInput{
+			Bucket:     &bucketName,
+			Key:        &objectKey,
+			UploadId:   uploadID,
+			PartNumber: &partNumber,
+			Body:       bytes.NewReader(data[start:end]),
+		})
+		if err != nil {
+			// Abort on failure
+			_, _ = client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+				Bucket:   &bucketName,
+				Key:      &objectKey,
+				UploadId: uploadID,
+			})
+			return err
+		}
+
+		completedParts = append(completedParts, types.CompletedPart{
+			ETag:       uploadResp.ETag,
+			PartNumber: &partNumber,
+		})
+		log.Printf("uploaded part %d (%d bytes)", partNumber, end-start)
+		partNumber++
+	}
+
+	_, err = client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+		Bucket:   &bucketName,
+		Key:      &objectKey,
+		UploadId: uploadID,
+		MultipartUpload: &types.CompletedMultipartUpload{
+			Parts: completedParts,
+		},
+	})
+	return err
+}
+
+// PresignGetObject generates a presigned URL for downloading an object.
+func PresignGetObject(ctx context.Context, client *s3.Client, bucketName, objectKey string, expiry time.Duration) (string, error) {
+	presignClient := s3.NewPresignClient(client)
+	req, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: &bucketName,
+		Key:    &objectKey,
+	}, s3.WithPresignExpires(expiry))
+	if err != nil {
+		return "", err
+	}
+	return req.URL, nil
+}
+
+// PresignPutObject generates a presigned URL for uploading an object.
+func PresignPutObject(ctx context.Context, client *s3.Client, bucketName, objectKey string, expiry time.Duration) (string, error) {
+	presignClient := s3.NewPresignClient(client)
+	req, err := presignClient.PresignPutObject(ctx, &s3.PutObjectInput{
+		Bucket: &bucketName,
+		Key:    &objectKey,
+	}, s3.WithPresignExpires(expiry))
+	if err != nil {
+		return "", err
+	}
+	return req.URL, nil
+}
+
+// UploadWithPresignedURL uploads data to a presigned PUT URL using a plain HTTP client.
+func UploadWithPresignedURL(presignedURL string, data []byte) error {
+	req, err := http.NewRequest(http.MethodPut, presignedURL, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.ContentLength = int64(len(data))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("presigned upload failed: %s %s", resp.Status, string(body))
+	}
+	return nil
 }
