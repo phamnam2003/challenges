@@ -4,17 +4,20 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"go.uber.org/zap"
 )
 
 var (
@@ -26,19 +29,29 @@ var (
 	region       = flag.String("region", "us-east-1", "AWS region for S3-compatible storage")
 )
 
+var logger *zap.Logger
+
 func main() {
 	flag.Parse()
+
+	var err error
+	logger, err = zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Sync()
+
 	if *endpoint == "" {
-		panic("endpoint is required")
+		logger.Fatal("endpoint is required")
 	}
 	if *accessKey == "" {
-		panic("access-key is required")
+		logger.Fatal("access-key is required")
 	}
 	if *secretKey == "" {
-		panic("secret-key is required")
+		logger.Fatal("secret-key is required")
 	}
 	if *bucketName == "" {
-		panic("bucket is required")
+		logger.Fatal("bucket is required")
 	}
 
 	httpcli := &http.Client{
@@ -56,8 +69,11 @@ func main() {
 		},
 	}
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT)
+	defer cancel()
+
 	cfg, err := config.LoadDefaultConfig(
-		context.Background(),
+		ctx,
 		config.WithRegion(*region),
 		config.WithHTTPClient(httpcli),
 		config.WithCredentialsProvider(
@@ -67,39 +83,113 @@ func main() {
 		),
 	)
 	if err != nil {
-		panic(err)
+		logger.Fatal("failed to load config", zap.Error(err))
 	}
 
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.BaseEndpoint = endpoint
 		o.UsePathStyle = *usePathStyle
 	})
-	buckets, err := ListBuckets(context.Background(), client)
-	if err != nil {
-		panic("failed to list buckets: " + err.Error())
-	}
-	log.Printf("buckets: %+v", buckets)
 
-	file, err := os.ReadFile("./tech/s3/docker-compose.yml")
+	// === ListBuckets ===
+	buckets, err := ListBuckets(ctx, client)
 	if err != nil {
-		panic("failed to read docker-compose file: " + err.Error())
+		logger.Fatal("failed to list buckets", zap.Error(err))
 	}
-	err = PutObject(context.Background(), client, *bucketName, "docker-compose.yml", file)
-	if err != nil {
-		panic("failed to put object: " + err.Error())
+	logger.Info("list buckets", zap.Strings("buckets", buckets))
+
+	// === PutObject: upload 5 files vào các "thư mục" khác nhau ===
+	dummyData := []byte("hello s3")
+	uploads := []string{
+		"images/avatar/user1.png",
+		"images/avatar/user2.png",
+		"images/banner/hero.jpg",
+		"documents/report.pdf",
+		"readme.txt",
 	}
-	obj, err := ListObjects(context.Background(), client, *bucketName)
-	if err != nil {
-		panic("failed to list objects: " + err.Error())
-	}
-	log.Printf("objects in bucket: %+v", obj)
-	for _, key := range obj {
-		data, err := GetObject(context.Background(), client, *bucketName, key)
-		if err != nil {
-			log.Printf("failed to get object %s: %v", key, err)
-			continue
+	for _, key := range uploads {
+		if err := PutObject(ctx, client, *bucketName, key, dummyData); err != nil {
+			logger.Fatal("put object failed", zap.String("key", key), zap.Error(err))
 		}
-		log.Printf("object %s content:\n%s", key, string(data))
+	}
+	logger.Info("put objects", zap.Int("count", len(uploads)))
+
+	// === ListObjects với prefix ===
+	keys, prefixes, _ := ListObjects(ctx, client, *bucketName, "")
+	logger.Info("list objects", zap.String("prefix", ""), zap.Strings("keys", keys), zap.Strings("prefixes", prefixes))
+
+	keys, prefixes, _ = ListObjects(ctx, client, *bucketName, "images/")
+	logger.Info("list objects", zap.String("prefix", "images/"), zap.Strings("keys", keys), zap.Strings("prefixes", prefixes))
+
+	keys, prefixes, _ = ListObjects(ctx, client, *bucketName, "images/avatar/")
+	logger.Info("list objects", zap.String("prefix", "images/avatar/"), zap.Strings("keys", keys), zap.Strings("prefixes", prefixes))
+
+	// === HeadObject ===
+	head, err := HeadObject(ctx, client, *bucketName, "images/avatar/user1.png")
+	if err != nil {
+		logger.Error("head object failed", zap.Error(err))
+	} else {
+		logger.Info("head object",
+			zap.String("key", "images/avatar/user1.png"),
+			zap.Int64("content-length", *head.ContentLength),
+			zap.String("content-type", *head.ContentType),
+			zap.Time("last-modified", *head.LastModified),
+		)
+	}
+
+	// === CopyObject ===
+	copySource := *bucketName + "/images/avatar/user1.png"
+	err = CopyObject(ctx, client, copySource, *bucketName, "backup/user1_copy.png")
+	if err != nil {
+		logger.Error("copy object failed", zap.Error(err))
+	} else {
+		logger.Info("copy object", zap.String("from", "images/avatar/user1.png"), zap.String("to", "backup/user1_copy.png"))
+	}
+
+	// === MultipartUpload ===
+	largeData := bytes.Repeat([]byte("x"), 10*1024*1024)
+	err = MultipartUpload(ctx, client, *bucketName, "large/bigfile.bin", largeData, 5*1024*1024)
+	if err != nil {
+		logger.Error("multipart upload failed", zap.Error(err))
+	} else {
+		logger.Info("multipart upload", zap.String("key", "large/bigfile.bin"), zap.Int("size_mb", 10), zap.Int("parts", 2))
+	}
+
+	// === PresignURL GET ===
+	getURL, err := PresignURL(ctx, client, http.MethodGet, *bucketName, "readme.txt", 15*time.Minute)
+	if err != nil {
+		logger.Error("presign GET failed", zap.Error(err))
+	} else {
+		logger.Info("presign GET", zap.String("key", "readme.txt"), zap.String("url", getURL))
+	}
+
+	// === PresignURL PUT + UploadWithPresignedURL ===
+	putURL, err := PresignURL(ctx, client, http.MethodPut, *bucketName, "presigned/hello.txt", 15*time.Minute)
+	if err != nil {
+		logger.Error("presign PUT failed", zap.Error(err))
+	} else {
+		err = UploadWithPresignedURL(putURL, []byte("uploaded via presigned URL"))
+		if err != nil {
+			logger.Error("upload with presigned URL failed", zap.Error(err))
+		} else {
+			logger.Info("upload with presigned URL", zap.String("key", "presigned/hello.txt"))
+		}
+	}
+
+	// === DeleteObject ===
+	err = DeleteObject(ctx, client, *bucketName, "backup/user1_copy.png")
+	if err != nil {
+		logger.Error("delete object failed", zap.Error(err))
+	} else {
+		logger.Info("delete object", zap.String("key", "backup/user1_copy.png"))
+	}
+
+	// === GetObject ===
+	content, err := GetObject(ctx, client, *bucketName, "presigned/hello.txt")
+	if err != nil {
+		logger.Error("get object failed", zap.Error(err))
+	} else {
+		logger.Info("get object", zap.String("key", "presigned/hello.txt"), zap.String("content", string(content)))
 	}
 }
 
@@ -130,12 +220,11 @@ func DeleteBucket(ctx context.Context, client *s3.Client, bucketName string) err
 }
 
 func PutObject(ctx context.Context, client *s3.Client, bucketName, objectKey string, data []byte) error {
-	o, err := client.PutObject(ctx, &s3.PutObjectInput{
+	_, err := client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: &bucketName,
 		Key:    &objectKey,
 		Body:   bytes.NewReader(data),
 	})
-	log.Printf("put object: %+v", o)
 	return err
 }
 
@@ -164,29 +253,16 @@ func DeleteObject(ctx context.Context, client *s3.Client, bucketName, objectKey 
 	return err
 }
 
-func ListObjects(ctx context.Context, client *s3.Client, bucketName string) ([]string, error) {
-	output, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket: &bucketName,
-	})
-	if err != nil {
-		return nil, err
-	}
-	keys := make([]string, 0, len(output.Contents))
-	for _, obj := range output.Contents {
-		keys = append(keys, *obj.Key)
-	}
-	return keys, nil
-}
-
-// ListObjectsWithPrefix lists objects and "subdirectories" under a given prefix.
-// Returns object keys and common prefixes (virtual folders).
-func ListObjectsWithPrefix(ctx context.Context, client *s3.Client, bucketName, prefix string) (keys []string, prefixes []string, err error) {
+func ListObjects(ctx context.Context, client *s3.Client, bucketName, prefix string) (keys []string, prefixes []string, err error) {
 	delimiter := "/"
-	output, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+	input := &s3.ListObjectsV2Input{
 		Bucket:    &bucketName,
-		Prefix:    &prefix,
 		Delimiter: &delimiter,
-	})
+	}
+	if prefix != "" {
+		input.Prefix = &prefix
+	}
+	output, err := client.ListObjectsV2(ctx, input)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -199,7 +275,6 @@ func ListObjectsWithPrefix(ctx context.Context, client *s3.Client, bucketName, p
 	return keys, prefixes, nil
 }
 
-// HeadObject retrieves object metadata without downloading the body.
 func HeadObject(ctx context.Context, client *s3.Client, bucketName, objectKey string) (*s3.HeadObjectOutput, error) {
 	return client.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: &bucketName,
@@ -207,8 +282,6 @@ func HeadObject(ctx context.Context, client *s3.Client, bucketName, objectKey st
 	})
 }
 
-// CopyObject copies an object within the same bucket or across buckets.
-// copySource format: "source-bucket/source-key"
 func CopyObject(ctx context.Context, client *s3.Client, copySource, destBucket, destKey string) error {
 	_, err := client.CopyObject(ctx, &s3.CopyObjectInput{
 		Bucket:     &destBucket,
@@ -218,7 +291,6 @@ func CopyObject(ctx context.Context, client *s3.Client, copySource, destBucket, 
 	return err
 }
 
-// MultipartUpload uploads data in parts. partSize is the size of each part in bytes (minimum 5MB).
 func MultipartUpload(ctx context.Context, client *s3.Client, bucketName, objectKey string, data []byte, partSize int) error {
 	createResp, err := client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 		Bucket: &bucketName,
@@ -238,15 +310,15 @@ func MultipartUpload(ctx context.Context, client *s3.Client, bucketName, objectK
 			end = len(data)
 		}
 
+		pn := partNumber
 		uploadResp, err := client.UploadPart(ctx, &s3.UploadPartInput{
 			Bucket:     &bucketName,
 			Key:        &objectKey,
 			UploadId:   uploadID,
-			PartNumber: &partNumber,
+			PartNumber: &pn,
 			Body:       bytes.NewReader(data[start:end]),
 		})
 		if err != nil {
-			// Abort on failure
 			_, _ = client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
 				Bucket:   &bucketName,
 				Key:      &objectKey,
@@ -257,9 +329,9 @@ func MultipartUpload(ctx context.Context, client *s3.Client, bucketName, objectK
 
 		completedParts = append(completedParts, types.CompletedPart{
 			ETag:       uploadResp.ETag,
-			PartNumber: &partNumber,
+			PartNumber: &pn,
 		})
-		log.Printf("uploaded part %d (%d bytes)", partNumber, end-start)
+		logger.Debug("uploaded part", zap.Int32("part", pn), zap.Int("bytes", end-start))
 		partNumber++
 	}
 
@@ -274,33 +346,32 @@ func MultipartUpload(ctx context.Context, client *s3.Client, bucketName, objectK
 	return err
 }
 
-// PresignGetObject generates a presigned URL for downloading an object.
-func PresignGetObject(ctx context.Context, client *s3.Client, bucketName, objectKey string, expiry time.Duration) (string, error) {
+func PresignURL(ctx context.Context, client *s3.Client, method, bucketName, objectKey string, expiry time.Duration) (string, error) {
 	presignClient := s3.NewPresignClient(client)
-	req, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
-		Bucket: &bucketName,
-		Key:    &objectKey,
-	}, s3.WithPresignExpires(expiry))
-	if err != nil {
-		return "", err
+	switch method {
+	case http.MethodGet:
+		req, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+			Bucket: &bucketName,
+			Key:    &objectKey,
+		}, s3.WithPresignExpires(expiry))
+		if err != nil {
+			return "", err
+		}
+		return req.URL, nil
+	case http.MethodPut:
+		req, err := presignClient.PresignPutObject(ctx, &s3.PutObjectInput{
+			Bucket: &bucketName,
+			Key:    &objectKey,
+		}, s3.WithPresignExpires(expiry))
+		if err != nil {
+			return "", err
+		}
+		return req.URL, nil
+	default:
+		return "", fmt.Errorf("unsupported presign method: %s", method)
 	}
-	return req.URL, nil
 }
 
-// PresignPutObject generates a presigned URL for uploading an object.
-func PresignPutObject(ctx context.Context, client *s3.Client, bucketName, objectKey string, expiry time.Duration) (string, error) {
-	presignClient := s3.NewPresignClient(client)
-	req, err := presignClient.PresignPutObject(ctx, &s3.PutObjectInput{
-		Bucket: &bucketName,
-		Key:    &objectKey,
-	}, s3.WithPresignExpires(expiry))
-	if err != nil {
-		return "", err
-	}
-	return req.URL, nil
-}
-
-// UploadWithPresignedURL uploads data to a presigned PUT URL using a plain HTTP client.
 func UploadWithPresignedURL(presignedURL string, data []byte) error {
 	req, err := http.NewRequest(http.MethodPut, presignedURL, bytes.NewReader(data))
 	if err != nil {
@@ -314,7 +385,7 @@ func UploadWithPresignedURL(presignedURL string, data []byte) error {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("presigned upload failed: %s %s", resp.Status, string(body))
+		return fmt.Errorf("presigned upload failed: %s %s", resp.Status, string(body))
 	}
 	return nil
 }
