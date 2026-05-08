@@ -194,7 +194,7 @@ func main() {
 }
 
 func ListBuckets(ctx context.Context, client *s3.Client) ([]string, error) {
-	output, err := client.ListBuckets(ctx, &s3.ListBucketsInput{})
+	output, err := client.ListBuckets(ctx, &s3.ListBucketsInput{BucketRegion: region})
 	if err != nil {
 		return nil, err
 	}
