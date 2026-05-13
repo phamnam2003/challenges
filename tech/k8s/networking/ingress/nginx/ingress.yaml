@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gate-controller-ingress
+  namespace: go-gate-ns
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: k8s.gate.local.io
+      http:
+        paths:
+          - path: /controller
+            pathType: Prefix
+            backend:
+              service:
+                name: gate-controller-service
+                port:
+                  number: 8080
+          - path: /unit
+            pathType: Prefix
+            backend:
+              service:
+                name: gate-unit-service
+                port:
+                  number: 8081
