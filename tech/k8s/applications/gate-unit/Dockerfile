@@ -10,7 +10,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w" \
     -o gate-unit \
-    ./tech/k8s/applications/gate-unit
+    ./gate-unit
 
 
 FROM alpine:3.21

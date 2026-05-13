@@ -13,8 +13,8 @@ import (
 )
 
 type HttpServer struct {
-	router      *gin.Engine
-	serviceName string
+	router  *gin.Engine
+	options HttpOpts
 }
 
 func (s *HttpServer) setupRoutes() {
@@ -31,13 +31,13 @@ func (s *HttpServer) setupRoutes() {
 
 	router.GET("/health-check", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"service": s.serviceName,
+			"service": s.options.ServiceName,
 		})
 	})
 
 	router.NoRoute(func(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{
-			"service": s.serviceName,
+			"service": s.options.ServiceName,
 			"error":   "not found route",
 		})
 	})
@@ -45,9 +45,9 @@ func (s *HttpServer) setupRoutes() {
 	s.router = router
 }
 
-func (s *HttpServer) Run(ctx context.Context, wg *errgroup.Group, addr string) {
+func (s *HttpServer) Run(ctx context.Context, wg *errgroup.Group) {
 	httpServer := &http.Server{
-		Addr:           addr,
+		Addr:           s.options.Addr,
 		Handler:        s.router,
 		ReadTimeout:    15 * time.Second,
 		WriteTimeout:   15 * time.Second,
@@ -55,14 +55,14 @@ func (s *HttpServer) Run(ctx context.Context, wg *errgroup.Group, addr string) {
 	}
 
 	wg.Go(func() error {
-		log.Printf("[%s] starting HTTP server on %s", s.serviceName, addr)
+		log.Printf("[%s] starting HTTP server on %s", s.options.ServiceName, s.options.Addr)
 		err := httpServer.ListenAndServe()
 		if err != nil {
 			if errors.Is(err, http.ErrServerClosed) {
 				return nil
 			}
 
-			log.Printf("[%s] cannot start HTTP server on %s: %v", s.serviceName, addr, err)
+			log.Printf("[%s] cannot start HTTP server on %s: %v", s.options.ServiceName, s.options.Addr, err)
 			return err
 		}
 
@@ -71,22 +71,23 @@ func (s *HttpServer) Run(ctx context.Context, wg *errgroup.Group, addr string) {
 
 	wg.Go(func() error {
 		<-ctx.Done()
-		log.Printf("[%s] graceful shutdown http server on %s", s.serviceName, addr)
+		log.Printf("[%s] graceful shutdown http server on %s", s.options.ServiceName, s.options.Addr)
 
 		err := httpServer.Shutdown(context.Background())
 		if err != nil {
-			log.Printf("[%s] failed to shutdown HTTP server on %s: %v", s.serviceName, addr, err)
+			log.Printf("[%s] failed to shutdown HTTP server on %s: %v", s.options.ServiceName, s.options.Addr, err)
 			return err
 		}
 
-		log.Printf("[%s] HTTP server on %s was stopped", s.serviceName, addr)
+		log.Printf("[%s] HTTP server on %s was stopped", s.options.ServiceName, s.options.Addr)
 		return nil
 	})
 }
 
-func NewHttpServer(serviceName string) *HttpServer {
-	s := &HttpServer{
-		serviceName: serviceName,
+func NewHttpServer(opts ...Options) *HttpServer {
+	s := &HttpServer{}
+	for _, opt := range opts {
+		opt(&s.options)
 	}
 
 	s.setupRoutes()

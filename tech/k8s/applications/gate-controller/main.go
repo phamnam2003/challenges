@@ -6,8 +6,12 @@ func main() {
 	wg, ctx, cancel := resource.NewAppContext()
 	defer cancel()
 
-	s := resource.NewHttpServer("gate-controller")
-	s.Run(ctx, wg, ":8080")
+	s := resource.NewHttpServer(
+		resource.WithAddr(":8080"),
+		resource.WithServiceName("gate-controller"),
+		resource.WithBasePath("/controller"),
+	)
+	s.Run(ctx, wg)
 
 	if err := wg.Wait(); err != nil {
 		panic(err)
