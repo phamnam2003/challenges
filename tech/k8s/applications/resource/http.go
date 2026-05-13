@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -29,7 +30,9 @@ func (s *HttpServer) setupRoutes() {
 		ExposeHeaders:    []string{"Content-Length", "Accept-Language"},
 	}))
 
-	router.GET("/health-check", func(ctx *gin.Context) {
+	healthCheckEndpoint := fmt.Sprintf("%s/health-check", s.options.BasePath)
+
+	router.GET(healthCheckEndpoint, func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
 			"service": s.options.ServiceName,
 		})

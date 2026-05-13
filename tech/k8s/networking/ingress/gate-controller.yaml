@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gate-controller-deployment
+  namespace: go-gate-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gate-controller
+  template:
+    metadata:
+      labels:
+        app: gate-controller
+    spec:
+      containers:
+        - name: gate-controller
+          image: namphamhai/gate-controller:v0.0.2
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /controller/health-check
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /controller/health-check
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: gate-controller-service
+  namespace: go-gate-ns
+spec:
+  selector:
+    app: gate-controller
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
