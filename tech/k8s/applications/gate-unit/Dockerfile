@@ -15,7 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata wget && \
+RUN apk add --no-cache ca-certificates tzdata && \
     adduser -S appuser
 
 WORKDIR /app
@@ -23,9 +23,6 @@ WORKDIR /app
 COPY --from=builder /build/gate-unit .
 
 EXPOSE 8081
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -qO- http://localhost:8081/health-check || exit 1
 
 USER appuser
 
