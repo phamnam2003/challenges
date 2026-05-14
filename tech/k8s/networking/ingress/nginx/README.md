@@ -11,13 +11,25 @@
 ```bash
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo update
-
+```
+```bash
+# Install ingress-nginx for custom field by command line
 helm install ingress-nginx ingress-nginx/ingress-nginx \
   --namespace ingress-nginx \
   --create-namespace \
   --set controller.service.type=NodePort \
   --set controller.service.nodePorts.http=30080 \ 
   --set controller.service.nodePorts.https=30443
+```
+
+```bash
+# Install nginx with helm install from file values.yaml
+# Pull repo
+helm pull ingress-nginx/ingress-nginx
+# untar
+tar -xvf ingress-nginx-<version>.tgz
+# After custom file run this
+helm -n ingress-nginx install ingress-nginx -f ingress-nginx/values.yaml ingress-nginx
 ```
 
 `NodePort` is used instead of `LoadBalancer` because bare-metal clusters have no cloud load balancer provider.
