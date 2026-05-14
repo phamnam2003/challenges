@@ -15,7 +15,9 @@ helm repo update
 helm install ingress-nginx ingress-nginx/ingress-nginx \
   --namespace ingress-nginx \
   --create-namespace \
-  --set controller.service.type=NodePort
+  --set controller.service.type=NodePort \
+  --set controller.service.nodePorts.http=30080 \ 
+  --set controller.service.nodePorts.https=30443
 ```
 
 `NodePort` is used instead of `LoadBalancer` because bare-metal clusters have no cloud load balancer provider.
