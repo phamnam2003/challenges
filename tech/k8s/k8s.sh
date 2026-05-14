@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# sed -i 's/\r$//' k8s.sh
 set -euo pipefail
 
 KUBE_MINOR="${KUBE_MINOR:-1.33}"
