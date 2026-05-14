@@ -15,6 +15,7 @@ spec:
     spec:
       containers:
         - name: gate-unit
+          imagePullPolicy: Always
           image: namphamhai/gate-unit:v0.0.2
           ports:
             - containerPort: 8081
@@ -36,6 +37,9 @@ spec:
               port: 8081
             initialDelaySeconds: 10
             periodSeconds: 20
+          envFrom:
+            - configMapRef:
+                name: go-gate-config-map
 
 ---
 
