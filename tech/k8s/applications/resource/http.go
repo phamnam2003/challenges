@@ -35,6 +35,7 @@ func (s *HttpServer) setupRoutes() {
 	router.GET(healthCheckEndpoint, func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
 			"service": s.options.ServiceName,
+			"version": s.options.SecLoader.Getenv("VERSION"),
 		})
 	})
 
@@ -87,7 +88,7 @@ func (s *HttpServer) Run(ctx context.Context, wg *errgroup.Group) {
 	})
 }
 
-func NewHttpServer(opts ...Options) *HttpServer {
+func NewHttpServer(opts ...HttpOptions) *HttpServer {
 	s := &HttpServer{}
 	for _, opt := range opts {
 		opt(&s.options)

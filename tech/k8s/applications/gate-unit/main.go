@@ -6,10 +6,20 @@ func main() {
 	wg, ctx, cancel := resource.NewAppContext()
 	defer cancel()
 
+	envLoader, err := resource.NewViperSecretLoader(resource.SecretOpts{
+		ConfigType:  "env",
+		Name:        ".env",
+		SearchPaths: []string{"."},
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	s := resource.NewHttpServer(
 		resource.WithAddr(":8081"),
 		resource.WithServiceName("gate-unit"),
 		resource.WithBasePath("/unit"),
+		resource.WithSecretLoader(envLoader),
 	)
 	s.Run(ctx, wg)
 
