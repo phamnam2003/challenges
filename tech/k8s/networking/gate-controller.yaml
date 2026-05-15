@@ -37,6 +37,12 @@ spec:
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 20
+          startupProbe:
+            httpGet:
+              path: /controller/health-check
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 10
           envFrom:
             - configMapRef:
                 name: go-gate-config-map
