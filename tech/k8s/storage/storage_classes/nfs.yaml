@@ -2,7 +2,7 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: nfs-sc
-provisioner: example.com/external-nfs
+provisioner: example.com/external-nfs # or use: kubernetes.io/no-provisioner if you manage PVs manually by nfs-server
 parameters:
   server: nfs-server.example.com
   path: /share
