@@ -10,6 +10,42 @@ Kubernetes provides three main autoscaling mechanisms, each operating at a diffe
 
 ---
 
+## Prerequisites — Metrics Server
+
+HPA requires **Metrics Server** to be running in the cluster to read CPU and memory usage from nodes and pods. Without it, HPA cannot function for resource metrics.
+
+### Install with Helm
+
+```bash
+helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+helm repo update
+```
+
+```bash
+helm install metrics-server metrics-server/metrics-server \
+  --namespace kube-system
+```
+
+For **local clusters** (kind, minikube, kubeadm with self-signed certs) the kubelet TLS certificate is not trusted by default — add `--kubelet-insecure-tls`:
+
+```bash
+helm install metrics-server metrics-server/metrics-server \
+  --namespace kube-system \
+  --set args={--kubelet-insecure-tls}
+```
+
+### Verify
+
+```bash
+kubectl get deployment metrics-server -n kube-system
+kubectl top nodes
+kubectl top pods -A
+```
+
+`kubectl top nodes` returning data confirms Metrics Server is working. HPA will start functioning within one scrape interval (~15 seconds).
+
+---
+
 ## HPA — Horizontal Pod Autoscaler
 
 **Official docs:** https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/
