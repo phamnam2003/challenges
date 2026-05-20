@@ -2,8 +2,8 @@
 # sed -i 's/\r$//' k8s.sh
 set -euo pipefail
 
-KUBE_MINOR="${KUBE_MINOR:-1.33}"
-KUBE_VERSION="${KUBE_VERSION:-1.33.2-1.1}"
+KUBE_MINOR="${KUBE_MINOR:-1.36}"
+KUBE_VERSION="${KUBE_VERSION:-1.36.1-1.1}"
 NODE_IP="${NODE_IP:-}"
 DRY_RUN=false
 
@@ -124,7 +124,7 @@ log "Generating containerd config"
 if ! $DRY_RUN; then
     containerd config default \
         | sed 's/SystemdCgroup = false/SystemdCgroup = true/' \
-        | sed 's|sandbox_image = ".*"|sandbox_image = "registry.k8s.io/pause:3.10"|' \
+        | sed 's|sandbox_image = ".*"|sandbox_image = "registry.k8s.io/pause:3.10.2"|' \
         | sudo tee /etc/containerd/config.toml >/dev/null
 else
     echo "[DRY-RUN] containerd config default | sed ... | sudo tee /etc/containerd/config.toml"
