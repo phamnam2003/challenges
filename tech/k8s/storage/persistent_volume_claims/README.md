@@ -1,44 +1,28 @@
-# PersistentVolumeClaim trong Kubernetes
+# PersistentVolumeClaim
 
-## PersistentVolumeClaim là gì?
+**PVC** is a storage request from a workload — the developer declares *how much* and *what access mode* is needed, and Kubernetes finds or creates a matching PV and binds it. PVC is namespace-scoped: only Pods in the same namespace can use it.
 
-**PersistentVolumeClaim (PVC)** là yêu cầu storage từ phía workload — tương tự như Pod yêu cầu CPU/RAM nhưng dành cho persistent storage. PVC mô tả *cần bao nhiêu dung lượng* và *cần access theo kiểu nào*, còn Kubernetes lo việc tìm (hoặc tạo) PV phù hợp và bind lại.
-
-PVC là namespace-scoped: chỉ Pod trong cùng namespace mới dùng được PVC đó.
+Without PVC, Pods would embed storage backend details directly in their spec — developers would need to know the infrastructure, and any storage change would require updating every workload. PVC creates an abstraction layer: developers declare what they need, admins handle the provisioning.
 
 ---
 
-## Bài toán giải quyết
-
-Không có PVC, Pod phải tự khai báo chi tiết storage backend trong spec của mình (NFS server address, local path...). Điều này buộc dev phải biết rõ hạ tầng storage, và mỗi khi storage thay đổi phải sửa lại toàn bộ workload.
-
-PVC tạo ra một lớp tách biệt:
-- **Dev** chỉ cần khai báo nhu cầu: "tôi cần 10Gi, RWO, dùng StorageClass longhorn"
-- **Admin** lo phần cung cấp storage phía dưới (qua PV hoặc StorageClass)
-
----
-
-## Vòng đời của PVC
+## Lifecycle
 
 ```
-PVC tạo → K8s tìm PV phù hợp → Bind → Pod dùng → PVC bị xóa → PV reclaim
+PVC created → K8s finds matching PV → Bound → Pod uses it → PVC deleted → PV reclaimed
 ```
 
-### Trạng thái PVC
-
-| Phase | Ý nghĩa |
+| Phase | Meaning |
 |-------|---------|
-| `Pending` | Chưa tìm được PV phù hợp, đang chờ |
-| `Bound` | Đã bind thành công với một PV |
-| `Terminating` | Đang bị xóa nhưng vẫn còn Pod đang dùng |
+| `Pending` | No matching PV found yet |
+| `Bound` | Successfully bound to a PV |
+| `Terminating` | Deletion requested but a Pod is still mounting it |
 
-### Cơ chế bảo vệ
-
-Kubernetes không cho phép xóa PVC khi vẫn còn Pod đang mount nó. PVC sẽ ở trạng thái `Terminating` với finalizer `kubernetes.io/pvc-protection` cho đến khi Pod release — tránh mất dữ liệu đột ngột.
+Kubernetes will not delete a PVC while a Pod is mounting it — the finalizer `kubernetes.io/pvc-protection` holds the PVC in `Terminating` until the Pod releases it.
 
 ---
 
-## Cấu trúc manifest
+## Manifest
 
 ```yaml
 apiVersion: v1
@@ -49,7 +33,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  volumeMode: Filesystem
+  volumeMode: Filesystem       # Filesystem (default) | Block
   storageClassName: longhorn
   resources:
     requests:
@@ -58,78 +42,50 @@ spec:
 
 ---
 
-## Các trường quan trọng
+## Key Fields
 
 ### `accessModes`
 
-Phải khớp với `accessModes` của PV được bind:
+| Mode | Short | Scope |
+|------|-------|-------|
+| `ReadWriteOnce` | RWO | One **node** read-write |
+| `ReadOnlyMany` | ROX | Many nodes read-only |
+| `ReadWriteMany` | RWX | Many nodes read-write |
+| `ReadWriteOncePod` | RWOP | One **Pod** read-write |
 
-| Mode | Viết tắt | Ý nghĩa |
-|------|----------|---------|
-| `ReadWriteOnce` | RWO | Một node mount đọc/ghi |
-| `ReadOnlyMany` | ROX | Nhiều node mount chỉ đọc |
-| `ReadWriteMany` | RWX | Nhiều node mount đọc/ghi |
-| `ReadWriteOncePod` | RWOP | Chỉ một Pod duy nhất mount đọc/ghi |
-
----
+RWO and RWOP are easy to confuse: RWO is per-node (multiple Pods on the same node can all mount it), RWOP is per-Pod (exactly one Pod, regardless of node).
 
 ### `storageClassName`
 
-Xác định StorageClass nào xử lý PVC này:
-
-| Giá trị | Hành vi |
-|---------|---------|
-| Tên class (vd `longhorn`) | Dynamic provisioning — provisioner tự tạo PV |
-| Tên class không có provisioner (vd `local-storage`) | K8s tìm PV tĩnh có cùng `storageClassName` |
-| `""` (chuỗi rỗng) | Tắt dynamic provisioning, chỉ bind với PV không có storageClass |
-| Không khai báo | Dùng default StorageClass của cluster |
-
----
+| Value | Behavior |
+|-------|---------|
+| Class name with provisioner (e.g. `longhorn`) | Dynamic provisioning — PV created automatically |
+| Class name without provisioner (e.g. `local-storage`) | K8s looks for a static PV with the same class |
+| `""` (empty string) | Only binds to PVs with no storageClass |
+| Omitted | Uses the cluster's default StorageClass |
 
 ### `resources.requests.storage`
 
-Dung lượng tối thiểu cần thiết. PVC chỉ bind với PV có dung lượng **bằng hoặc lớn hơn** giá trị này.
+Minimum capacity required. PVC only binds to a PV whose capacity is **equal to or greater than** this value.
 
----
-
-### `volumeMode`
-
-| Giá trị | Hành vi |
-|---------|---------|
-| `Filesystem` (mặc định) | Mount như directory |
-| `Block` | Expose như raw block device |
-
----
-
-### `volumeName`
-
-Bind trực tiếp với một PV cụ thể theo tên, bỏ qua quá trình matching tự động:
+### `volumeName` and `selector`
 
 ```yaml
 spec:
-  volumeName: local-pv-node1
-```
+  volumeName: local-pv-node1       # bind directly to a specific PV, skips auto-matching
 
----
-
-### `selector`
-
-Lọc PV theo label, dùng khi có nhiều PV cùng class và cần chọn cái phù hợp:
-
-```yaml
-spec:
   selector:
     matchLabels:
-      tier: ssd
+      tier: ssd                    # filter PVs by label when multiple PVs share the same class
 ```
 
 ---
 
-## Ví dụ theo provisioner
+## Examples by Provisioner
 
-### Local Storage (Static Provisioning)
+### Local Storage (Static)
 
-PV phải được admin tạo trước. PVC bind dựa trên `storageClassName` và capacity.
+PV must be created by an admin first. PVC stays `Pending` until a Pod is scheduled because local storage uses `volumeBindingMode: WaitForFirstConsumer`.
 
 ```yaml
 apiVersion: v1
@@ -144,10 +100,6 @@ spec:
     requests:
       storage: 100Gi
 ```
-
-Lưu ý: vì local storage dùng `volumeBindingMode: WaitForFirstConsumer`, PVC sẽ ở `Pending` cho đến khi có Pod được schedule.
-
----
 
 ### NFS
 
@@ -165,13 +117,9 @@ spec:
       storage: 50Gi
 ```
 
-NFS hỗ trợ `ReadWriteMany` — nhiều Pod từ nhiều node có thể cùng mount PVC này.
+### Longhorn (Dynamic)
 
----
-
-### Longhorn (Dynamic Provisioning)
-
-Không cần tạo PV trước. Khi PVC được apply, Longhorn CSI driver tự tạo Longhorn volume và PV tương ứng rồi bind ngay.
+No PV needs to be created in advance — the CSI driver creates the volume and binds it when the PVC is applied.
 
 ```yaml
 apiVersion: v1
@@ -187,93 +135,57 @@ spec:
       storage: 20Gi
 ```
 
-Nếu muốn control số replica, disk type... thì tạo StorageClass riêng với các `parameters` tương ứng và trỏ `storageClassName` sang class đó.
+To control replica count, disk type, etc. — create a dedicated StorageClass with the corresponding `parameters`.
 
 ---
 
-## Dùng PVC trong Deployment
+## Using PVC in a Deployment
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: app-deployment
-  namespace: default
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: my-app
-  template:
-    metadata:
-      labels:
-        app: my-app
-    spec:
-      containers:
-        - name: app
-          image: nginx
-          volumeMounts:
-            - mountPath: /data
-              name: storage
-      volumes:
-        - name: storage
-          persistentVolumeClaim:
-            claimName: longhorn-pvc
+volumes:
+  - name: storage
+    persistentVolumeClaim:
+      claimName: longhorn-pvc
 ```
 
-Deployment và PVC phải ở **cùng namespace**.
+The Deployment and PVC must be in the **same namespace**. When `replicas > 1`, `accessModes` becomes the deciding factor:
 
-Khi `replicas > 1`, `accessModes` trở thành yếu tố quyết định:
+| AccessMode | Behavior with multiple replicas |
+|------------|---------------------------------|
+| RWO | Pods on the same node: works fine. Pods on different nodes: stuck at `ContainerCreating` — `Multi-Attach error: volume already exclusively attached to one node` |
+| RWOP | Second Pod fails regardless of whether it shares a node |
+| RWX | All Pods from any node can mount simultaneously |
 
-| AccessMode | Behavior với nhiều replica | Dùng khi nào |
-|------------|---------------------------|--------------|
-| `ReadWriteOnce` (RWO) | Chỉ các Pod cùng node mới mount được — Pod ở node khác bị treo ở `ContainerCreating` | Deployment 1 replica, stateful app |
-| `ReadWriteMany` (RWX) | Tất cả Pod từ mọi node đều mount được đồng thời | Deployment nhiều replica cần share volume |
+Longhorn (RWO) and NFS (RWX) solve different problems:
 
-**Longhorn vs NFS với Deployment nhiều replica:**
-
-Longhorn mặc định là RWO — không phù hợp cho Deployment nhiều replica cần tất cả Pod cùng ghi vào một volume. Tuy nhiên đây không phải điểm yếu của Longhorn, vì bài toán Longhorn giải quyết là khác: **replication tự động và HA** — dữ liệu được replicate qua nhiều node, node chết thì tự failover. Điểm mạnh đó hoàn toàn độc lập với việc có bao nhiêu replica trong Deployment.
-
-Longhorn và NFS giải quyết hai bài toán khác nhau:
-
-| | Longhorn (RWO) | NFS (RWX) |
+| | Longhorn | NFS |
 |---|---|---|
-| Phù hợp | Deployment 1 replica, DB, stateful app cần HA | Deployment nhiều replica cần share volume |
-| Điểm mạnh | Replication tự động, auto-failover, snapshot | Nhiều Pod từ nhiều node cùng mount |
-| Deployment nhiều replica | Không phù hợp nếu các Pod cần share cùng một volume | Phù hợp |
+| AccessMode | RWO | RWX |
+| Strengths | Automatic replication, auto-failover, snapshots | Multiple Pods across nodes mounting simultaneously |
+| Best for | Single replica, databases, stateful apps needing HA | Multi-replica Deployments sharing a volume |
 
 ---
 
-## Mở rộng dung lượng (Volume Expansion)
+## Volume Expansion
 
-Nếu StorageClass có `allowVolumeExpansion: true`, chỉ cần chỉnh `resources.requests.storage` lên cao hơn:
-
-```yaml
-spec:
-  resources:
-    requests:
-      storage: 50Gi  # tăng từ 20Gi lên 50Gi
-```
-
-Kubernetes và CSI driver sẽ tự xử lý việc resize volume phía dưới. Chỉ mở rộng được, không thu hẹp.
+If the StorageClass has `allowVolumeExpansion: true`, increasing `resources.requests.storage` is enough — the CSI driver resizes the underlying volume automatically. Expansion only, no shrinking.
 
 ---
 
-## Tóm tắt: PVC — PV — StorageClass
+## PVC — PV — StorageClass
 
 ```
-PVC (yêu cầu của workload)
+PVC (workload declares its need)
   └── storageClassName: longhorn
       └── StorageClass longhorn
           └── provisioner: driver.longhorn.io
-              └── Tự tạo PV + Longhorn volume
-                  └── Bind PVC ↔ PV
-                      └── Pod mount được /data
+              └── Creates PV + Longhorn volume
+                  └── Binds PVC ↔ PV → Pod mounts /data
 ```
 
 ---
 
-## Tài liệu tham khảo
+## References
 
 - [Persistent Volumes - Kubernetes Docs](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims)
 - [PersistentVolumeClaim API Reference](https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/)
