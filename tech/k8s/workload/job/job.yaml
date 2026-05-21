@@ -1,0 +1,168 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migration
+  namespace: default
+  labels:
+    app: db-migration
+    version: "v1.2.0"
+spec:
+  # Number of Pods that must complete successfully for the Job to be considered done.
+  # In NonIndexed mode, any Pod completion counts.
+  completions: 1
+
+  # Number of Pods running in parallel at any given time.
+  # completions=1, parallelism=1 → sequential, correct for migrations.
+  parallelism: 1
+
+  # How Pods are indexed.
+  # NonIndexed (default): Pods are interchangeable; any completion counts.
+  # Indexed: each Pod receives a COMPLETION_INDEX env var from 0..(completions-1),
+  #   useful for splitting data into batches (e.g. export 10 shards in parallel).
+  completionMode: NonIndexed
+
+  # Number of retries allowed before the Job is marked Failed.
+  # Default is 6. Migrations should be lower to fail fast.
+  backoffLimit: 3
+
+  # Overall time limit in seconds. Job is killed if exceeded.
+  # Guards against migrations hanging indefinitely.
+  activeDeadlineSeconds: 600
+
+  # Auto-delete the Job object after it finishes (both Succeeded and Failed).
+  # Without this, Jobs persist forever — logs remain readable but consume etcd space.
+  # 0 = delete immediately (no time to read logs); production should use a few hours.
+  ttlSecondsAfterFinished: 3600
+
+  # When true, the Job does not create new Pods (paused). Useful for delaying a
+  # scheduled job or debugging without deleting the Job object.
+  suspend: false
+
+  # Kubernetes generates the selector from the Job UID to avoid conflicts.
+  # Keep manualSelector: false (the default).
+  manualSelector: false
+
+  # Policy for replacing Pods when they are terminated.
+  # TerminatingOrFailed (default): create a new Pod when one is Terminating or Failed.
+  # Failed: only create a new Pod when the previous one is fully Failed (not Terminating).
+  podReplacementPolicy: TerminatingOrFailed
+
+  template:
+    metadata:
+      labels:
+        app: db-migration
+        job-name: db-migration
+
+      # Annotations are commonly used for sidecar injection or monitoring hints.
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+
+    spec:
+      # OnFailure: container restarts in place on crash — use when the image is large
+      #   and rescheduling is expensive, but only if the migration is safe to re-run.
+      # Never (recommended for Jobs): Pod is marked Failed, Job creates a fresh Pod.
+      #   Each attempt starts clean with no leftover state.
+      restartPolicy: Never
+
+      # Seconds Kubernetes waits after SIGTERM before sending SIGKILL.
+      # Migrations need enough time to commit any in-flight transactions.
+      terminationGracePeriodSeconds: 60
+
+      # ClusterFirst (default): cluster-internal DNS is resolved first, then upstream.
+      # Required for calling internal services by name.
+      dnsPolicy: ClusterFirst
+
+      # Use the cluster's default scheduler.
+      schedulerName: default-scheduler
+
+      # Do not mount the service account token if the Job does not need to call the K8s API.
+      # Reduces attack surface if the container is compromised.
+      automountServiceAccountToken: false
+
+      # Do not run as root. Drop all Linux capabilities.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: migration
+          image: my-app:v1.2.0
+          imagePullPolicy: IfNotPresent
+
+          command: ["./migrate"]
+          args: ["--direction", "up", "--lock-timeout", "30s"]
+
+          # Inject DB credentials from a Secret — never hardcode into the image.
+          env:
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: host
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: port
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: dbname
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: password
+
+          resources:
+            # requests: guaranteed allocation used by the scheduler to select a node.
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            # limits: hard cap. Exceeding CPU → throttled. Exceeding memory → OOMKilled.
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: migration-scripts
+              mountPath: /migrations
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        # ConfigMap holding SQL migration files, mounted into the container.
+        - name: migration-scripts
+          configMap:
+            name: migration-scripts
+            defaultMode: 0444
+
+        # emptyDir for /tmp because readOnlyRootFilesystem: true.
+        # medium: "" → disk. medium: "Memory" → RAM (tmpfs), faster but consumes node memory.
+        - name: tmp
+          emptyDir:
+            medium: ""
+            sizeLimit: 64Mi
+
+      # No special tolerations needed; ensures the Job does not run on pressured nodes.
+      tolerations: []
+
+      # No affinity constraints needed; the scheduler selects an appropriate node.
+      affinity: {}
