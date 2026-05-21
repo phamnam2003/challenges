@@ -1,0 +1,261 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  namespace: production
+  labels:
+    app: db-backup
+    version: "1.0.0"
+    env: production
+  annotations:
+    description: "Daily database backup job"
+
+spec:
+  # ─── Schedule ───────────────────────────────────────────────────────────────
+  # Cron syntax: minute hour day-of-month month day-of-week
+  # "0 2 * * *" = 2:00 AM every day
+  schedule: "0 2 * * *"
+
+  # Timezone for the schedule — defaults to the timezone of kube-controller-manager if not set
+  timeZone: "Asia/Ho_Chi_Minh"
+
+  # Controls what happens when the next run fires while the previous Job is still running
+  # Allow  = create new Job even if previous is running (dangerous for DB writes)
+  # Forbid = skip scheduled run if previous Job is still running (safest for backups)
+  # Replace = delete the running Job and create a new one
+  concurrencyPolicy: Forbid
+
+  # Skip creating a Job if the controller missed the schedule by more than N seconds
+  # Default: 100
+  startingDeadlineSeconds: 300
+
+  # When true, the controller stops creating new Jobs (used to pause the CronJob)
+  # Default: false
+  suspend: false
+
+  # Number of successful Jobs to retain (for log inspection)
+  # Default: 3
+  successfulJobsHistoryLimit: 3
+
+  # Number of failed Jobs to retain
+  # Default: 1
+  failedJobsHistoryLimit: 3
+
+  # ─── Job Template ───────────────────────────────────────────────────────────
+  jobTemplate:
+    metadata:
+      labels:
+        app: db-backup
+        job-type: cronjob
+      annotations:
+        description: "Spawned by CronJob db-backup"
+
+    spec:
+      # Number of retries when a Pod fails (exit code != 0)
+      # Default: 6
+      backoffLimit: 2
+
+      # Maximum time the Job is allowed to run (seconds). Job is terminated after this.
+      # Default: unlimited — always set in production to prevent Jobs from hanging indefinitely
+      activeDeadlineSeconds: 1800   # 30 minutes
+
+      # Job completes when N Pods succeed
+      # Default: 1
+      completions: 1
+
+      # Number of Pods running in parallel at the same time
+      # Default: 1
+      parallelism: 1
+
+      # How many seconds to keep the Pod after the Job finishes before deleting it
+      # Default: no auto-delete (Job persists until cleaned up by successfulJobsHistoryLimit)
+      ttlSecondsAfterFinished: 600  # delete Pod 10 minutes after completion to free resources
+
+      # How completions are counted: NonIndexed (default) or Indexed (for parallel jobs with per-Pod index)
+      completionMode: NonIndexed
+
+      # ─── Pod Template ─────────────────────────────────────────────────────
+      template:
+        metadata:
+          labels:
+            app: db-backup
+            job-type: cronjob
+          annotations:
+            # Disable sidecar injection when using a service mesh (Istio/Linkerd)
+            # Jobs need a clean exit — a running sidecar keeps the Pod alive and prevents Job completion
+            sidecar.istio.io/inject: "false"
+
+        spec:
+          # ─── Scheduling ─────────────────────────────────────────────────
+          restartPolicy: OnFailure   # Never or OnFailure — NEVER use Always for a Job
+
+          # Pin the Job to nodes with this label (e.g. nodes dedicated to batch workloads)
+          # Remove nodeSelector if no specific node targeting is needed
+          nodeSelector:
+            kubernetes.io/os: linux
+
+          # Priority class so the scheduler can prioritize this Pod
+          # Default: not set (uses the cluster's default PriorityClass)
+          priorityClassName: ""
+
+          # ─── Security ───────────────────────────────────────────────────
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 2000
+            seccompProfile:
+              type: RuntimeDefault
+
+          # ─── Service Account ────────────────────────────────────────────
+          serviceAccountName: db-backup-sa
+          automountServiceAccountToken: false   # false if the Job does not need to call the k8s API
+
+          # ─── DNS ────────────────────────────────────────────────────────
+          dnsPolicy: ClusterFirst   # Default
+          dnsConfig: {}             # Override for custom DNS configuration
+
+          # ─── Tolerations ────────────────────────────────────────────────
+          # Allow the Pod to run on nodes with a taint (e.g. nodes dedicated to batch jobs)
+          # tolerations:
+          #   - key: "batch"
+          #     operator: "Equal"
+          #     value: "true"
+          #     effect: "NoSchedule"
+
+          # ─── Affinity ───────────────────────────────────────────────────
+          # affinity:
+          #   nodeAffinity:
+          #     requiredDuringSchedulingIgnoredDuringExecution:
+          #       nodeSelectorTerms:
+          #         - matchExpressions:
+          #             - key: node-role.kubernetes.io/worker
+          #               operator: Exists
+
+          # ─── Termination ────────────────────────────────────────────────
+          # Time to wait for SIGTERM before sending SIGKILL
+          # Default: 30
+          terminationGracePeriodSeconds: 30
+
+          # ─── Image Pull ──────────────────────────────────────────────────
+          imagePullSecrets:
+            - name: registry-credentials
+
+          # ─── Volumes ─────────────────────────────────────────────────────
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: backup-pvc
+                readOnly: false
+            - name: db-credentials
+              secret:
+                secretName: db-backup-secret
+                defaultMode: 0400   # read-only for owner
+
+          # ─── Init Containers ─────────────────────────────────────────────
+          initContainers:
+            - name: check-db-ready
+              image: busybox:1.36
+              imagePullPolicy: IfNotPresent
+              command:
+                - sh
+                - -c
+                - |
+                  until nc -z postgres-svc 5432; do
+                    echo "waiting for postgres..."
+                    sleep 2
+                  done
+              resources:
+                requests:
+                  cpu: "10m"
+                  memory: "16Mi"
+                limits:
+                  cpu: "50m"
+                  memory: "32Mi"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+
+          # ─── Main Container ───────────────────────────────────────────────
+          containers:
+            - name: db-backup
+              image: postgres:16-alpine
+              imagePullPolicy: IfNotPresent   # Always / Never / IfNotPresent
+
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="/backup/dump_${TIMESTAMP}.sql.gz"
+                  pg_dump \
+                    -h "$DB_HOST" \
+                    -U "$DB_USER" \
+                    -d "$DB_NAME" \
+                    --no-password \
+                    | gzip > "$BACKUP_FILE"
+                  echo "backup complete: $BACKUP_FILE"
+
+              env:
+                - name: DB_HOST
+                  value: postgres-svc.production.svc.cluster.local
+                - name: DB_NAME
+                  value: myapp
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-backup-secret
+                      key: username
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-backup-secret
+                      key: password
+
+              # ─── Resources ─────────────────────────────────────────────
+              # requests = resource amount the scheduler uses to place the Pod on a node
+              # limits   = hard cap: exceeding CPU causes throttling, exceeding memory causes OOMKill
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "128Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "512Mi"
+
+              # ─── Volume Mounts ──────────────────────────────────────────
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backup
+                - name: db-credentials
+                  mountPath: /etc/db-credentials
+                  readOnly: true
+
+              # ─── Security Context ───────────────────────────────────────
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 999      # uid of the postgres user in the alpine image
+                capabilities:
+                  drop: ["ALL"]
+
+              # ─── Probes ──────────────────────────────────────────────────
+              # Jobs typically don't need liveness/readiness probes, but startupProbe
+              # can be set if the container takes a long time to initialize
+              # to avoid premature restarts
+              # startupProbe:
+              #   exec:
+              #     command: ["pg_isready"]
+              #   initialDelaySeconds: 5
+              #   periodSeconds: 5
+              #   failureThreshold: 10
+
+              # ─── Lifecycle ───────────────────────────────────────────────
+              # preStop hook to flush data before receiving SIGTERM
+              # lifecycle:
+              #   preStop:
+              #     exec:
+              #       command: ["/bin/sh", "-c", "sleep 5"]
