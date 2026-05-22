@@ -1,0 +1,35 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cnpg-cluster-postgresql
+  namespace: cnpg-cluster
+spec:
+  description: "CloudNativePG Production PostgreSQL Cluster"
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.4
+  storage:
+    storageClass: longhorn-cnpg
+    size: 25Gi
+  walStorage:
+    storageClass: longhorn-cnpg
+    size: 5Gi
+  bootstrap:
+    initdb:
+      database: bootstrap-cluster-db
+      owner: appuser
+      secret:
+        name: cnpg-cluster-credentials
+  primaryUpdateStrategy: unsupervised
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: preferred
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          cnpg.io/cluster: cnpg-cluster-postgresql
+  monitoring:
+    enablePodMonitor: fals
