@@ -1,27 +1,27 @@
-# CloudNativePG trên Kubernetes
+# CloudNativePG on Kubernetes
 
-## CloudNativePG là gì?
+## What is CloudNativePG?
 
-**CloudNativePG (CNPG)** là một Kubernetes Operator quản lý toàn bộ lifecycle của PostgreSQL cluster — từ khởi tạo, replication, failover đến backup — thông qua một CRD duy nhất: `Cluster`. Thay vì tự viết StatefulSet + init container + sidecar script để vận hành PostgreSQL, bạn khai báo một resource `Cluster` và operator xử lý toàn bộ logic vận hành.
+**CloudNativePG (CNPG)** is a Kubernetes Operator that manages the full lifecycle of a PostgreSQL cluster — from initialization, replication, and failover to backup — through a single CRD: `Cluster`. Instead of writing StatefulSets + init containers + sidecar scripts to operate PostgreSQL yourself, you declare a `Cluster` resource and the operator handles all operational logic.
 
-Bên dưới, CNPG vẫn tạo Pod, PVC, Service. Điểm khác biệt so với [StatefulSet thuần](../workload/statefulset/README.md#bare-statefulset-vs-operator): CNPG **hiểu PostgreSQL** — nó biết cách cấu hình streaming replication, phát hiện primary chết, promote replica, và fence node lỗi. StatefulSet chỉ biết tạo Pod theo thứ tự.
+Under the hood, CNPG still creates Pods, PVCs, and Services. The difference from a [bare StatefulSet](../workload/statefulset/README.md#bare-statefulset-vs-operator): CNPG **understands PostgreSQL** — it knows how to configure streaming replication, detect a dead primary, promote a replica, and fence a failed node. A StatefulSet only knows how to create Pods in order.
 
-Một điểm quan trọng: CNPG **không dùng StatefulSet**. Nó quản lý Pod trực tiếp — điều này cho phép operator toàn quyền quyết định tạo/xóa/promote Pod nào mà không bị ràng buộc bởi thứ tự tuần tự của StatefulSet.
-
----
-
-## Bài toán giải quyết
-
-Chạy PostgreSQL trên Kubernetes bằng StatefulSet thuần yêu cầu tự giải quyết mọi vấn đề vận hành:
-
-- **Replication** — phải tự viết init container chạy `pg_basebackup`, cấu hình `primary_conninfo`, quản lý replication slot. CNPG tự động làm khi `instances > 1`
-- **Failover** — primary chết thì không có gì xảy ra. Phải tự phát hiện lỗi, chọn replica tốt nhất (ít replication lag nhất), promote nó, reconfigure các replica còn lại trỏ về primary mới. CNPG làm trong vài giây
-- **Fencing (chống split-brain)** — nếu node mất mạng nhưng Pod vẫn chạy, có thể xuất hiện hai primary ghi vào hai disk khác nhau. CNPG fence primary cũ bằng cách sửa `pg_hba.conf` từ chối mọi connection trước khi promote replica
-- **Backup** — phải tự setup CronJob cho `pg_basebackup` hoặc `pg_dump`, quản lý retention, verify restore. CNPG khai báo backup schedule và destination ngay trong spec của `Cluster`
+One important point: CNPG **does not use StatefulSets**. It manages Pods directly — this gives the operator full control over which Pods to create, delete, or promote without being constrained by StatefulSet's sequential ordering.
 
 ---
 
-## Kiến trúc
+## Problem It Solves
+
+Running PostgreSQL on Kubernetes with a bare StatefulSet requires solving every operational concern yourself:
+
+- **Replication** — you must write init containers running `pg_basebackup`, configure `primary_conninfo`, manage replication slots. CNPG handles this automatically when `instances > 1`
+- **Failover** — when the primary dies, nothing happens by default. You must detect the failure, pick the best replica (least replication lag), promote it, and reconfigure remaining replicas to point at the new primary. CNPG does this in seconds
+- **Fencing (split-brain prevention)** — if a node loses network but the Pod is still running, two primaries could write to two different disks. CNPG fences the old primary by patching `pg_hba.conf` to reject all connections before promoting a replica
+- **Backup** — you must set up CronJobs for `pg_basebackup` or `pg_dump`, manage retention, and verify restores. CNPG lets you declare the backup schedule and destination directly in the `Cluster` spec
+
+---
+
+## Architecture
 
 ```
                     ┌─────────────────────────┐
@@ -42,33 +42,33 @@ Chạy PostgreSQL trên Kubernetes bằng StatefulSet thuần yêu cầu tự gi
         └──────────┘     └──────────┘        └──────────┘
 ```
 
-Mỗi Pod có **hai PVC**: một cho data (`PGDATA`), một cho WAL. Tách WAL ra volume riêng giúp tránh WAL bloat làm đầy data disk và giảm contention I/O (WAL ghi tuần tự, data I/O ngẫu nhiên).
+Each Pod has **two PVCs**: one for data (`PGDATA`) and one for WAL. Separating WAL onto its own volume prevents WAL bloat from filling the data disk and reduces I/O contention (WAL writes are sequential; data I/O is random).
 
-Operator tự động tạo 3 Service:
+The operator automatically creates 3 Services:
 
-| Service | Trỏ đến |
-|---------|---------|
-| `{cluster}-rw` | Luôn trỏ đến primary — dùng cho write |
-| `{cluster}-ro` | Load-balance giữa các replica — dùng cho read |
-| `{cluster}-r` | Tất cả instance (primary + replica) |
-
----
-
-## Tại sao dùng Longhorn cho CNPG?
-
-PostgreSQL đã tự replicate data ở tầng application qua streaming replication (`instances: 3`). Nếu Longhorn cũng replicate ở tầng storage thì là **double replication** — tốn disk và I/O mà không có lợi ích thêm.
-
-Giải pháp: dùng Longhorn với `dataLocality: strict-local` và `numberOfReplicas: "1"` — data nằm trên cùng node với Pod, không replicate qua node khác. Kết quả:
-
-- **Không có network I/O** khi đọc/ghi database — critical cho PostgreSQL performance
-- **Dynamic provisioning** — CNPG khai báo `storageClass`, Longhorn tự tạo PV
-- **Volume expansion** — mở rộng PVC không cần downtime
-
-Trade-off: nếu node chết, Longhorn volume trên node đó mất. Nhưng PostgreSQL đã có 2 replica khác trên 2 node khác — operator tự promote replica và tạo lại instance mới.
+| Service | Points to |
+|---------|-----------|
+| `{cluster}-rw` | Always points to the primary — use for writes |
+| `{cluster}-ro` | Load-balances across replicas — use for reads |
+| `{cluster}-r` | All instances (primary + replicas) |
 
 ---
 
-## Cấu trúc Manifest
+## Why Use Longhorn with CNPG?
+
+PostgreSQL already replicates data at the application layer via streaming replication (`instances: 3`). If Longhorn also replicates at the storage layer, that's **double replication** — wasting disk and I/O with no added benefit.
+
+The solution: use Longhorn with `dataLocality: strict-local` and `numberOfReplicas: "1"` — data stays on the same node as the Pod, without replicating across nodes. Result:
+
+- **No network I/O** when reading/writing the database — critical for PostgreSQL performance
+- **Dynamic provisioning** — CNPG declares the `storageClass`, Longhorn creates the PV automatically
+- **Volume expansion** — expand PVCs without downtime
+
+Trade-off: if a node dies, the Longhorn volume on that node is gone. But PostgreSQL already has 2 replicas on 2 other nodes — the operator promotes a replica and recreates the failed instance.
+
+---
+
+## Manifest Structure
 
 ```yaml
 apiVersion: v1
@@ -81,7 +81,7 @@ kind: Secret
 metadata:
   name: cnpg-cluster-credentials
   namespace: cnpg-cluster
-type: kubernetes.io/basic-auth          # yêu cầu đúng 2 field: username + password
+type: kubernetes.io/basic-auth          # requires exactly 2 fields: username + password
 stringData:
   username: appuser
   password: "<your-password>"
@@ -93,12 +93,12 @@ metadata:
 provisioner: driver.longhorn.io
 allowVolumeExpansion: true
 parameters:
-  numberOfReplicas: "1"                 # không replicate — PostgreSQL đã tự replicate
-  dataLocality: "strict-local"          # data nằm trên cùng node với Pod
+  numberOfReplicas: "1"                 # no replication — PostgreSQL already replicates
+  dataLocality: "strict-local"          # data stays on the same node as the Pod
   staleReplicaTimeout: "2880"
   fsType: "ext4"
-reclaimPolicy: Retain                   # xóa PVC không xóa PV — bảo vệ data
-volumeBindingMode: WaitForFirstConsumer # tạo PV sau khi Pod được schedule — bắt buộc với strict-local
+reclaimPolicy: Retain                   # deleting the PVC does not delete the PV — protects data
+volumeBindingMode: WaitForFirstConsumer # create PV after Pod is scheduled — required with strict-local
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
@@ -107,29 +107,29 @@ metadata:
   namespace: cnpg-cluster
 spec:
   description: "CloudNativePG Production PostgreSQL Cluster"
-  instances: 3                                    # 1 primary + 2 replica
+  instances: 3                                    # 1 primary + 2 replicas
   imageName: ghcr.io/cloudnative-pg/postgresql:18.4
 
   storage:
     storageClass: longhorn-cnpg
     size: 25Gi
-  walStorage:                                     # tách WAL ra PVC riêng
+  walStorage:                                     # separate WAL onto its own PVC
     storageClass: longhorn-cnpg
-    size: 5Gi                                     # thường 10-20% data volume
+    size: 5Gi                                     # typically 10-20% of the data volume
 
   bootstrap:
-    initdb:                                       # chỉ chạy lần đầu khởi tạo cluster
+    initdb:                                       # runs only on first cluster initialization
       database: bootstrap-cluster-db
       owner: appuser
       secret:
-        name: cnpg-cluster-credentials            # Secret phải tồn tại trước khi apply Cluster
+        name: cnpg-cluster-credentials            # Secret must exist before applying Cluster
 
-  primaryUpdateStrategy: unsupervised             # operator tự switchover khi update
+  primaryUpdateStrategy: unsupervised             # operator handles switchover automatically on update
 
   affinity:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
-    podAntiAffinityType: preferred                # spread Pod ra nhiều node, không block scheduling
+    podAntiAffinityType: preferred                # spread Pods across nodes without blocking scheduling
   topologySpreadConstraints:
     - maxSkew: 1
       topologyKey: kubernetes.io/hostname
@@ -139,70 +139,70 @@ spec:
           cnpg.io/cluster: cnpg-cluster-postgresql
 
   monitoring:
-    enablePodMonitor: false                       # bật nếu đã cài Prometheus Operator
+    enablePodMonitor: false                       # enable only if Prometheus Operator is installed
 ```
 
 ---
 
-## Các trường quan trọng
+## Key Fields
 
 ### `bootstrap`
 
-Định nghĩa cách cluster được khởi tạo **lần đầu tiên**. Sau khi bootstrap xong, primary chạy và các replica tự clone từ primary qua streaming replication.
+Defines how the cluster is initialized **for the first time**. After bootstrap completes, the primary is running and replicas clone themselves from the primary via streaming replication.
 
-| Method | Khi nào dùng |
+| Method | When to use |
 |--------|-------------|
-| `initdb` | Cluster mới — chạy `initdb` tạo PostgreSQL instance từ đầu |
-| `recovery` | Restore từ backup (object store hoặc Volume Snapshot) |
-| `pg_basebackup` | Clone từ một PostgreSQL server có sẵn (kể cả không phải CNPG) |
+| `initdb` | New cluster — runs `initdb` to create a fresh PostgreSQL instance |
+| `recovery` | Restore from backup (object store or Volume Snapshot) |
+| `pg_basebackup` | Clone from an existing PostgreSQL server (including non-CNPG) |
 
 ---
 
 ### `walStorage`
 
-WAL (Write-Ahead Log) là cơ chế durability của PostgreSQL — mọi thay đổi được ghi vào WAL trước khi apply vào data file. Tách WAL ra PVC riêng:
+WAL (Write-Ahead Log) is PostgreSQL's durability mechanism — every change is written to WAL before being applied to data files. Separating WAL onto its own PVC:
 
-- **Ngăn data disk full** — WAL bloat (từ long-running transaction hoặc replication lag) không ảnh hưởng data volume
-- **Giảm contention I/O** — WAL ghi tuần tự, data I/O ngẫu nhiên, tách disk tránh tranh chấp
+- **Prevents data disk from filling up** — WAL bloat (from long-running transactions or replication lag) does not affect the data volume
+- **Reduces I/O contention** — WAL writes are sequential, data I/O is random; separate disks avoid competition
 
 ---
 
 ### `primaryUpdateStrategy`
 
-| Strategy | Hành vi |
-|----------|---------|
-| `unsupervised` | Operator xử lý toàn bộ: update replica trước, rồi switchover (replica lên primary, primary cũ restart với image mới). Downtime ngắn trong lúc switchover |
-| `supervised` | Operator chỉ update replica. Phải tự trigger switchover bằng `kubectl cnpg promote` |
+| Strategy | Behavior |
+|----------|----------|
+| `unsupervised` | Operator handles everything: updates replicas first, then performs switchover (replica becomes primary, old primary restarts with new image). Brief downtime during switchover |
+| `supervised` | Operator only updates replicas. You must manually trigger switchover with `kubectl cnpg promote` |
 
 ---
 
-### `affinity` và `topologySpreadConstraints`
+### `affinity` and `topologySpreadConstraints`
 
-Kết hợp `podAntiAffinity` với `topologySpreadConstraints` để phân bổ Pod ra nhiều node. Nếu một node chết, chỉ mất một instance — hai instance còn lại tiếp tục phục vụ.
+Combining `podAntiAffinity` with `topologySpreadConstraints` spreads Pods across nodes. If a node dies, only one instance is lost — the other two continue serving traffic.
 
-`podAntiAffinityType: preferred` (không phải `required`): "spread nếu có thể, nhưng nếu chỉ có 2 node mà 3 instance thì vẫn schedule instance thứ 3 lên node đã có." Với `required`, Pod thứ 3 sẽ Pending mãi mãi.
+`podAntiAffinityType: preferred` (not `required`): "spread if possible, but if there are only 2 nodes and 3 instances, still schedule the third instance on an already-occupied node." With `required`, the third Pod would stay Pending forever.
 
 ---
 
 ### `volumeBindingMode: WaitForFirstConsumer`
 
-Bắt buộc khi dùng `strict-local`. Nếu không có, Longhorn có thể tạo volume trên node-1 trong khi scheduler đặt Pod lên node-2 — Pod sẽ Pending vì không access được volume.
+Required when using `strict-local`. Without it, Longhorn may create the volume on node-1 while the scheduler places the Pod on node-2 — the Pod will stay Pending because it cannot access the volume.
 
 ---
 
 ## Common Pitfalls
 
-**`strict-local` mà không có `WaitForFirstConsumer`:** Longhorn tạo volume trên node ngẫu nhiên, Pod được schedule lên node khác → Pending mãi. Luôn dùng cặp `strict-local` + `WaitForFirstConsumer`.
+**`strict-local` without `WaitForFirstConsumer`:** Longhorn creates the volume on a random node, Pod is scheduled on a different node → Pending forever. Always pair `strict-local` with `WaitForFirstConsumer`.
 
-**Không tách WAL storage:** WAL và data chung PVC. Long-running transaction hoặc replication slot bloat WAL, đầy disk, PostgreSQL crash. Production luôn dùng `walStorage`.
+**No separate WAL storage:** WAL and data share the same PVC. A long-running transaction or replication slot bloats WAL, fills the disk, PostgreSQL crashes. Always use `walStorage` in production.
 
-**Secret chưa tồn tại khi apply Cluster:** CNPG bootstrap thất bại, cluster vào trạng thái lỗi. Apply Secret trước Cluster.
+**Secret does not exist when applying Cluster:** CNPG bootstrap fails, cluster enters an error state. Apply the Secret before the Cluster.
 
-**`podAntiAffinityType: required` trên cluster nhỏ:** 3 instance, 2 node → Pod thứ 3 Pending mãi. Dùng `preferred` trừ khi chắc chắn có đủ node.
+**`podAntiAffinityType: required` on a small cluster:** 3 instances, 2 nodes → third Pod Pending forever. Use `preferred` unless you can guarantee enough nodes.
 
-**`enablePodMonitor: true` mà chưa cài Prometheus Operator:** PodMonitor CRD không tồn tại, CNPG log error. Chỉ bật khi đã cài [kube-prometheus-stack](../monitor/README.md).
+**`enablePodMonitor: true` without Prometheus Operator installed:** The PodMonitor CRD does not exist, CNPG logs errors. Only enable when [kube-prometheus-stack](../monitor/README.md) is installed.
 
-**Không cấu hình backup:** Replication bảo vệ khỏi node failure. Backup bảo vệ khỏi xóa nhầm, corruption, ransomware. Hai thứ khác nhau — cấu hình `backup` trong Cluster spec hoặc dùng giải pháp backup ngoài.
+**No backup configured:** Replication protects against node failure. Backup protects against accidental deletion, corruption, and ransomware. These are different concerns — configure `backup` in the Cluster spec or use an external backup solution.
 
 ---
 
