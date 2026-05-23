@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: namph-gate
+  namespace: argocd                              # Application resource must live in the argocd namespace
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io    # cascading delete: removing this app deletes all managed resources
+spec:
+  project: go-gate-project
+
+  source:
+    repoURL: https://github.com/phamnam2003/challenge
+    targetRevision: main                         # pin to a tag/SHA in production
+    path: deploy/k8s                             # path to manifests inside the repo
+
+  destination:
+    server: https://kubernetes.default.svc       # in-cluster; replace with registered URL for remote clusters
+    namespace: go-gate-ns
+
+  syncPolicy:
+    automated:
+      prune: true                                # delete resources removed from Git
+      selfHeal: true                             # revert out-of-band kubectl changes
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true                     # auto-create go-gate-ns if it doesn't exist
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
