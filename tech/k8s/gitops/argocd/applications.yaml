@@ -2,32 +2,82 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: namph-gate
-  namespace: argocd                              # Application resource must live in the argocd namespace
+  # Application object must live in argocd namespace regardless of where the app deploys
+  # default: N/A — required
+  namespace: argocd
   finalizers:
-    - resources-finalizer.argocd.argoproj.io    # cascading delete: removing this app deletes all managed resources
+    # Cascading delete: removing this Application also deletes all managed cluster resources.
+    # Omit this finalizer if the app manages shared infra (Namespace, CRDs) to avoid data loss.
+    - resources-finalizer.argocd.argoproj.io
 spec:
+  # ArgoCD Project for RBAC — controls which repos/clusters this app is allowed to use.
+  # default: "default" (unrestricted)
   project: go-gate-project
 
   source:
     repoURL: https://github.com/phamnam2003/challenge
-    targetRevision: main                         # pin to a tag/SHA in production
-    path: deploy/k8s                             # path to manifests inside the repo
+    # Mutable branch name causes every push to immediately change production desired state.
+    # Pin to a tag or SHA in production for immutable, rollback-friendly deployments.
+    # default: N/A — required
+    targetRevision: main
+    # Path to the directory containing manifests inside the repo.
+    # Argo CD renders all YAML files found here (raw, Helm, or Kustomize auto-detected).
+    path: deploy/k8s
 
   destination:
-    server: https://kubernetes.default.svc       # in-cluster; replace with registered URL for remote clusters
+    # https://kubernetes.default.svc = in-cluster (Argo CD and the target are in the same cluster).
+    # Replace with the registered cluster API URL for remote cluster deployments.
+    server: https://kubernetes.default.svc
+    # Target namespace for namespace-scoped resources that lack an explicit .metadata.namespace.
     namespace: go-gate-ns
 
   syncPolicy:
     automated:
-      prune: true                                # delete resources removed from Git
-      selfHeal: true                             # revert out-of-band kubectl changes
+      # Delete cluster resources that no longer exist in Git on the next sync.
+      # default: false
+      prune: true
+      # Revert out-of-band changes (manual kubectl edits, controller mutations) back to Git state.
+      # Without this, GitOps guarantee is broken — drift is never corrected automatically.
+      # default: false
+      selfHeal: true
+      # Safety guard: block automated sync if rendering the source produces zero resources.
+      # Prevents wiping everything when a path is accidentally renamed or repo is misconfigured.
+      # default: false
       allowEmpty: false
     syncOptions:
-      - CreateNamespace=true                     # auto-create go-gate-ns if it doesn't exist
+      # Auto-create destination namespace if it does not exist yet.
+      - CreateNamespace=true
+      # Only apply resources that are actually out-of-sync, reducing API server pressure on large apps.
       - ApplyOutOfSyncOnly=true
+      # Defer deletion of old resources until the end of the sync wave,
+      # ensuring new resources are healthy before old ones are removed.
+      - PruneLast=true
     retry:
+      # Number of retry attempts after a failed sync before giving up.
+      # -1 = unlimited retries. Set a finite limit to avoid masking persistent failures.
+      # default: 0 (no retry)
       limit: 3
       backoff:
+        # Initial wait before first retry.
+        # default: 5s
         duration: 10s
+        # Multiplier applied to duration on each subsequent retry (exponential backoff).
+        # default: 2
         factor: 2
+        # Upper bound on retry wait to prevent extremely long delays.
+        # default: 3m
         maxDuration: 3m
+
+  # Exclude fields from the OutOfSync calculation.
+  # Required when controllers mutate fields after apply (HPA managing replicas, injected annotations).
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        # HPA manages this field — ignoring prevents perpetual OutOfSync fights between HPA and ArgoCD.
+        - /spec/replicas
+
+  # Number of historical sync records retained for rollback.
+  # Lower values reduce etcd storage; higher values allow rolling back further.
+  # default: 10
+  revisionHistoryLimit: 5
