@@ -1,0 +1,135 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: go-gate-project                # must match Application.spec.project (required)
+  namespace: argocd                    # must match the namespace where ArgoCD is installed (required)
+  finalizers:
+    # Deleting this project cascades deletion to ALL Applications under it. Remove if project manages shared infra
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: "Go Gate API Gateway — manages deployments on namespace go-gate-ns"  # (default: "")
+
+  # === SOURCE REPOS ===
+  # Restrict which repos can provide manifests — prevents supply chain attacks. Wildcard '*' = no control
+  # Empty [] = no app can sync
+  sourceRepos:
+    - https://github.com/phamnam2003/challenges   # matches Application.spec.source.repoURL
+
+  # === DESTINATIONS ===
+  # Allowed cluster + namespace pairs for deployment. Empty [] = blocks all deploys
+  # WARNING: allowing namespace 'argocd' grants admin-level access — app can read all Secrets
+  destinations:
+    - server: https://kubernetes.default.svc       # in-cluster
+      namespace: go-gate-ns                        # matches Application.spec.destination.namespace
+
+  # === CLUSTER RESOURCE WHITELIST ===
+  # Allowed cluster-scoped resources (Namespace, ClusterRole, CRD...). Default [] = deny all — safest default
+  # group '*', kind '*' = allow everything — NEVER use in production
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace    # required because Application enables CreateNamespace=true
+
+  # === CLUSTER RESOURCE BLACKLIST ===
+  # Deny specific cluster-scoped resources, evaluated AFTER whitelist. Default: []
+  clusterResourceBlacklist: []
+
+  # === NAMESPACE RESOURCE WHITELIST ===
+  # Allow specific namespace-scoped resources. Default [] = allow ALL (except blacklist)
+  # Declaring entries switches to whitelist mode — easy to miss required resources, prefer blacklist instead
+  namespaceResourceWhitelist: []
+
+  # === NAMESPACE RESOURCE BLACKLIST ===
+  # Deny dangerous namespace-scoped resources — should be managed by platform team, not apps
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota    # changing quota affects the entire namespace
+    - group: ''
+      kind: LimitRange        # enforces limits on every pod in the namespace
+
+  # === ROLES ===
+  # Project-level RBAC — who can do what with Applications. Default: [] (only ArgoCD admins have access)
+  # Policy format: p, proj:<project>:<role>, <resource>, <action>, <project>/<app-glob>, allow|deny
+  # Only controls app operations (get/sync/delete/override/action), NOT cluster/repo/user management
+  roles:
+    - name: developer
+      description: "View status + trigger sync — for team developers"
+      policies:
+        - p, proj:go-gate-project:developer, applications, get, go-gate-project/*, allow
+        - p, proj:go-gate-project:developer, applications, sync, go-gate-project/*, allow
+        - p, proj:go-gate-project:developer, logs, get, go-gate-project/*, allow
+      groups:
+        - go-gate-developers     # OIDC/SSO group from IdP (Keycloak, Okta, Google...)
+
+    - name: ci-deployer
+      description: "Sync namph-gate only — for CI/CD pipeline via JWT token"
+      policies:
+        - p, proj:go-gate-project:ci-deployer, applications, get, go-gate-project/namph-gate, allow
+        - p, proj:go-gate-project:ci-deployer, applications, sync, go-gate-project/namph-gate, allow
+      # Create token: argocd proj role create-token go-gate-project ci-deployer --expires-in 720h
+      # Remove entry = immediate revoke. ALWAYS set --expires-in to limit blast radius if token leaks
+      # jwtTokens:
+      #   - iat: 1717200000     # replace with actual iat after token creation
+
+  # === SYNC WINDOWS ===
+  # Controls WHEN syncs are allowed. Default: [] (sync anytime)
+  # When allow + deny windows overlap → deny WINS
+  syncWindows:
+    - kind: allow
+      schedule: '0 9 * * 1-5'     # 9:00 AM Mon-Fri
+      duration: 9h                 # until 6:00 PM
+      applications: ['*']
+      manualSync: true             # still allow manual sync outside window (default: false)
+      timeZone: "Asia/Ho_Chi_Minh" # default: UTC — wrong timezone = deploys at wrong time
+    - kind: deny
+      schedule: '0 0 * * 0,6'     # all day Sat + Sun
+      duration: 24h
+      applications: ['*']
+      manualSync: false            # block manual sync on weekends too (default: false)
+      timeZone: "Asia/Ho_Chi_Minh"
+
+  # === ORPHANED RESOURCES ===
+  # Detects resources in namespace not tracked by any Application (e.g. direct kubectl apply, bypassing GitOps)
+  # Default: disabled entirely
+  orphanedResources:
+    warn: true                     # show warning on ArgoCD UI (default: false)
+    ignore:                        # skip auto-created K8s resources — avoids false positives
+      - group: discovery.k8s.io
+        kind: EndpointSlice
+      - group: ''
+        kind: Endpoints
+      - group: ''
+        kind: Event
+      - group: ''
+        kind: ConfigMap
+        name: "kube-root-ca.crt"   # auto-injected by K8s into every namespace
+      - group: ''
+        kind: ServiceAccount
+        name: "default"            # auto-created default SA
+
+  # === SIGNATURE KEYS ===
+  # Verify GPG signature on Git commits before sync — prevents unauthorized commits
+  # If declared, ALL commits must be signed or sync fails. Default: [] (no verification)
+  # Import key first: argocd gpg add --from <key-file>
+  # signatureKeys:
+  #   - keyID: "ABCDEF1234567890"
+
+  # === SOURCE NAMESPACES ===
+  # Allow Application CRDs in namespaces other than 'argocd' (Apps in Any Namespace feature)
+  # Requires feature flag 'application.namespaces' in argocd-cmd-params-cm. Default: []
+  # sourceNamespaces:
+  #   - "go-gate-ns"
+
+  # === SOURCE INTEGRITY ===
+  # Newer replacement for signatureKeys — verify commit signatures with granular policies
+  # GPG modes: strict (must be signed), loose (warn only), disabled
+  # sourceIntegrity:
+  #   git:
+  #     policies:
+  #       - repos:
+  #           - url: 'https://github.com/phamnam2003/*'
+  #         gpg:
+  #           mode: strict
+  #           keys:
+  #             - "ABCDEF1234567890"
+
+  permitOnlyProjectScopedClusters: false   # true = only use clusters scoped to this project (default: false)

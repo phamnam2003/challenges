@@ -15,7 +15,7 @@ spec:
   project: go-gate-project
 
   source:
-    repoURL: https://github.com/phamnam2003/challenge
+    repoURL: https://github.com/phamnam2003/challenges
     # Mutable branch name causes every push to immediately change production desired state.
     # Pin to a tag or SHA in production for immutable, rollback-friendly deployments.
     # default: N/A — required
