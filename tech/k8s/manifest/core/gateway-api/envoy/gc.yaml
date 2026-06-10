@@ -1,0 +1,22 @@
+# GatewayClass - resource cluster-scoped, đóng vai trò "template" cho mọi Gateway.
+# Tương tự StorageClass với PVC: Gateway tham chiếu GatewayClass qua tên để biết
+# implementation nào (controller nào) sẽ xử lý và chạy với tham số gì.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: envoy-gateway-class
+spec:
+  # Khớp đúng controllerName mà control plane Envoy Gateway "đăng ký" (hardcode
+  # trong project). Sai chuỗi này -> không controller nào nhận -> Gateway treo
+  # ở trạng thái không Accepted.
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+
+  # Gắn EnvoyProxy (proxy.yaml) vào class: mọi Gateway dùng class này sẽ
+  # provision data plane theo cấu hình đó (NodePort, replicas, resources...).
+  # Bỏ block này -> Envoy Gateway dùng default (Service LoadBalancer), không hợp
+  # với cluster bare-metal.
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: envoy-proxy
+    namespace: envoy-gateway-system

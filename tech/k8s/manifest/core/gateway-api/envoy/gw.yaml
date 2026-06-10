@@ -1,0 +1,58 @@
+# Namespace riêng cho hạ tầng Gateway - tách Gateway (do platform team quản lý)
+# khỏi namespace ứng dụng. HTTPRoute của app ở namespace khác vẫn attach được
+# nhờ allowedRoutes.namespaces.from: All bên dưới.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default-gateway
+
+---
+
+# Gateway - điểm vào (entry point) thật của traffic. Khi tạo, Envoy Gateway tự
+# provision một bộ Envoy proxy pod + Service (theo proxy.yaml) để lắng nghe.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: cluster-default
+  namespace: default-gateway
+spec:
+  # Trỏ tới GatewayClass ở gc.yaml -> kế thừa controller + EnvoyProxy params.
+  gatewayClassName: envoy-gateway-class
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          # from quyết định HTTPRoute ở namespace nào được phép attach vào listener:
+          #
+          #   All    - bất kỳ namespace nào (dùng chung toàn cluster, hợp với
+          #            tên "cluster-default"). Tiện nhưng lỏng nhất về bảo mật.
+          #   Same   - chỉ HTTPRoute CÙNG namespace với Gateway (default-gateway).
+          #            Khoá kín, chỉ platform team đặt route được.
+          #   Selector - chỉ namespace có nhãn khớp matchLabels (xem ví dụ dưới).
+          #            Cân bằng: cấp quyền theo nhãn cho từng team/tenant.
+          from: All
+
+          # Ví dụ Same - bỏ comment và xoá `from: All` ở trên để dùng:
+          # from: Same
+
+          # Ví dụ Selector - chỉ ns gắn nhãn `gateway-access: "true"` mới attach được.
+          # Gắn nhãn cho ns: kubectl label ns <ten-ns> gateway-access=true
+          # from: Selector
+          # selector:
+          #   matchLabels:
+          #     gateway-access: "true"
+
+      # --- Tối ưu: thêm listener HTTPS khi đã có chứng chỉ (TLS termination) ---
+      # - name: https
+      #   protocol: HTTPS
+      #   port: 443
+      #   tls:
+      #     mode: Terminate
+      #     certificateRefs:
+      #       - kind: Secret
+      #         name: wildcard-tls   # Secret kubernetes.io/tls, PHẢI cùng ns với Gateway
+      #   allowedRoutes:
+      #     namespaces:
+      #       from: All

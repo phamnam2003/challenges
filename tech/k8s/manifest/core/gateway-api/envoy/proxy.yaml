@@ -1,0 +1,52 @@
+# EnvoyProxy - file cấu hình "Envoy chạy như thế nào" ở data plane.
+# Đây KHÔNG phải resource tạo traffic; nó là tham số (parametersRef) được
+# GatewayClass trỏ tới để Infra Manager biết cách provision Deployment/Service
+# cho từng Envoy proxy pod. Áp dụng file này TRƯỚC gc.yaml để tránh Gateway
+# provision bằng cấu hình mặc định rồi mới phải reconcile lại.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: envoy-proxy
+  # Phải nằm cùng namespace với control plane (envoy-gateway-system) vì
+  # GatewayClass là cluster-scoped sẽ tham chiếu tới đây qua namespace.
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        # NodePort: kiến trúc đã chọn - một nginx node riêng đứng ngoài làm upstream
+        # LB, proxy_pass xuống các worker node qua nodePort cố định. Nginx tự cân tải
+        # giữa các node nên KHÔNG cần MetalLB / L2 announcement (Cilium chỉ làm CNI).
+        type: NodePort
+        # Pin nodePort: mặc định K8s cấp ngẫu nhiên trong 30000-32767 và có thể đổi
+        # khi Service tái tạo -> upstream nginx sẽ lệch port. Patch giá trị cố định để
+        # block `upstream { server <worker>:30080; }` luôn đúng.
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              ports:
+                # `name` phải khớp port do Envoy Gateway sinh ra, nếu sai patch sẽ
+                # ÂM THẦM thêm port thừa thay vì sửa. Kiểm tra trước:
+                #   kubectl -n envoy-gateway-system get svc \
+                #     -l gateway.envoyproxy.io/owning-gateway-name=cluster-default -o yaml
+                - name: http-80
+                  nodePort: 30080
+
+        # --- Tối ưu (bật khi cần, mặc định để comment cho an toàn) ---
+
+        # externalTrafficPolicy: Local
+        #   Giữ nguyên client source IP thật (cần cho log/rate-limit theo IP).
+        #   Đánh đổi: chỉ route tới node đang chạy Envoy pod -> bật kèm replicas>=2
+        #   hoặc DaemonSet để không rơi traffic ở node không có pod.
+
+      # envoyDeployment:
+      #   replicas: 2          # HA data plane - tránh single point of failure
+      #   pod:
+      #     # tách Envoy ra các node khác nhau
+      #     topologySpreadConstraints: []
+      #   container:
+      #     resources:         # đặt request/limit để scheduler & HPA hoạt động đúng
+      #       requests: { cpu: 100m, memory: 256Mi }
+      #       limits:   { cpu: 500m, memory: 512Mi }
