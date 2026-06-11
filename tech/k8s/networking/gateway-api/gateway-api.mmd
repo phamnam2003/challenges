@@ -1,22 +1,36 @@
-%%{init: {"flowchart": {"curve": "basis", "htmlLabels": true, "padding": 18, "nodeSpacing": 55, "rankSpacing": 75}, "themeVariables": {"fontFamily": "Segoe UI, Inter, sans-serif"}}}%%
-%% Gateway API - core components, relationships, and request flow
+%%{init: {"flowchart": {"curve": "basis", "htmlLabels": true, "padding": 18, "nodeSpacing": 50, "rankSpacing": 70}, "themeVariables": {"fontFamily": "Segoe UI, Inter, sans-serif"}}}%%
+%% Gateway API - full resource model: every Route kind bound to its listener protocol
 %% Render: https://mermaid.live  or VS Code "Markdown Preview Mermaid" extension
 
 flowchart TB
     client(["Client / Browser"]):::client
 
     %% ===================== CONTROL PLANE =====================
-    subgraph CONTROL["CONTROL PLANE - Declarative config"]
+    subgraph CONTROL["CONTROL PLANE - Declarative config (role-oriented)"]
         direction TB
 
         gc("<b>GatewayClass</b> (cluster)<br/>controllerName<br/>registers the controller"):::infra
-        gw("<b>Gateway</b> (ns: gateway-infra)<br/>listeners: http 80 / https 443<br/>tls: Terminate<br/>allowedRoutes.from: All"):::operator
-        route("<b>HTTPRoute</b> (ns: app-ns)<br/>hostnames: app.example.com<br/>rules: header / path / weight"):::dev
-        rg("<b>ReferenceGrant</b> (ns: app-ns)<br/>allows cross-namespace refs"):::dev
+
+        gw("<b>Gateway</b> (ns: gateway-infra)<br/>listeners:<br/>http 80 HTTP<br/>https 443 HTTPS Terminate<br/>tls 443 TLS Passthrough<br/>tcp 3306 TCP / udp 53 UDP<br/>allowedRoutes.from: All"):::operator
+
+        rg("<b>ReferenceGrant</b> (ns: app-ns)<br/>permits cross-namespace<br/>Route -> Service / Secret refs"):::dev
+
+        subgraph ROUTES["Route kinds (ns: app-ns) - attached via parentRefs + sectionName"]
+            direction TB
+            httproute("<b>HTTPRoute</b><br/>hostnames + path / header / weight<br/>redirect / rewrite / mirror"):::dev
+            grpcroute("<b>GRPCRoute</b><br/>match service / method<br/>needs HTTP/2 (HTTPS listener)"):::dev
+            tlsroute("<b>TLSRoute</b><br/>match SNI hostname<br/>passthrough, no L7 decrypt"):::dev
+            tcproute("<b>TCPRoute</b><br/>raw L4 forward (alpha)"):::dev
+            udproute("<b>UDPRoute</b><br/>raw L4 datagram (alpha)"):::dev
+        end
 
         gc -- "gatewayClassName" --> gw
-        gw -- "parentRefs" --> route
-        rg -. "permits" .-> route
+        gw -- "sectionName: https" --> httproute
+        gw -- "sectionName: https" --> grpcroute
+        gw -- "sectionName: tls" --> tlsroute
+        gw -- "sectionName: tcp" --> tcproute
+        gw -- "sectionName: udp" --> udproute
+        rg -. "permits" .-> ROUTES
     end
 
     %% ===================== CONTROLLER =====================
@@ -26,24 +40,28 @@ flowchart TB
     subgraph DATA["DATA PLANE - Runtime traffic"]
         direction TB
 
-        proxy("<b>Proxy</b><br/>Envoy / NGINX / eBPF<br/>TLS terminate + L7 routing"):::proxy
+        proxy("<b>Proxy</b> (Envoy / NGINX / eBPF)<br/>one socket per listener<br/>L7 route + L4 forward"):::proxy
 
-        scanary("svc-canary : 8080"):::svc
-        sapi("svc-api : 8080"):::svc
-        smain("svc-main : 80"):::svc
+        swweb("svc-web : 80<br/>L7 HTTP backend"):::svc
+        sgrpc("svc-grpc : 9000<br/>gRPC backend"):::svc
+        stls("svc-secure : 8443<br/>terminates own TLS"):::svc
+        smysql("svc-mysql : 3306<br/>TCP backend"):::svc
+        sdns("svc-dns : 53<br/>UDP backend"):::svc
 
-        proxy -- "header x-env=canary" --> scanary
-        proxy -- "path /api" --> sapi
-        proxy -- "default catch-all" --> smain
+        proxy -- "HTTP / HTTPS terminate" --> swweb
+        proxy -- "HTTP/2 gRPC" --> sgrpc
+        proxy -- "TLS passthrough (SNI)" --> stls
+        proxy -- "TCP forward" --> smysql
+        proxy -- "UDP forward" --> sdns
     end
 
     %% ===================== WIRING =====================
     gc -.-> controller
     gw -.-> controller
-    route -.-> controller
+    ROUTES -.-> controller
     controller == "render config + provision" ==> proxy
 
-    client == "HTTPS app.example.com" ==> proxy
+    client == "HTTPS / gRPC / TLS / TCP / UDP" ==> proxy
 
     %% ===================== STYLES =====================
     classDef client   fill:#334155,stroke:#475569,color:#f8fafc,stroke-width:1px,rx:14,ry:14
@@ -55,6 +73,7 @@ flowchart TB
     classDef svc      fill:#eef1f6,stroke:#cbd5e1,color:#334155,stroke-width:1px,rx:12,ry:12
 
     style CONTROL fill:#f1f0f7,stroke:#dcd9ec,stroke-width:1.5px,color:#6b6586,rx:18,ry:18
+    style ROUTES  fill:#eaf7f0,stroke:#bfe8d2,stroke-width:1px,color:#3f7a5d,rx:14,ry:14
     style DATA    fill:#f0f3f5,stroke:#d6dee2,stroke-width:1.5px,color:#5f7380,rx:18,ry:18
 
     linkStyle default stroke:#cbd5e1,stroke-width:1.5px
