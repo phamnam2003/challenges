@@ -1,0 +1,112 @@
+%%{init: {"flowchart": {"curve": "basis", "htmlLabels": true, "padding": 18, "nodeSpacing": 50, "rankSpacing": 70}, "themeVariables": {"fontFamily": "Segoe UI, Inter, sans-serif"}}}%%
+%% Envoy Gateway - full component model: what you declare, how the control plane
+%% compiles it, and how each piece shapes the request from client to pods.
+%% Render: https://mermaid.live  or VS Code "Markdown Preview Mermaid" extension
+
+flowchart TB
+    client(["Client / Browser"]):::client
+
+    %% ===================== CONTROL PLANE (declarative) =====================
+    subgraph CONTROL["CONTROL PLANE - what you kubectl apply"]
+        direction TB
+
+        gc("<b>GatewayClass</b> (cluster)<br/>controllerName binds Envoy Gateway"):::infra
+        gw("<b>Gateway</b> (ns: gateway-infra)<br/>listeners: http 80 / https 443 Terminate<br/>certificateRefs, allowedRoutes.from"):::operator
+        route("<b>HTTPRoute / GRPCRoute</b> (ns: app-ns)<br/>host / path / header rules + weight"):::dev
+        rg("<b>ReferenceGrant</b> (ns: app-ns)<br/>permits cross-namespace ref"):::dev
+
+        subgraph POLICIES["Envoy Gateway policies - Policy Attachment via targetRefs"]
+            direction TB
+            ctp("<b>ClientTrafficPolicy</b> -> Gateway<br/>HTTP/3, TLS params, keepalive, timeout"):::policy
+            sp("<b>SecurityPolicy</b> -> Route/Gateway<br/>JWT / OIDC / API key / ext-auth / CORS"):::policy
+            btp("<b>BackendTrafficPolicy</b> -> Route/Gateway<br/>rate limit, retry, timeout, circuit break, LB"):::policy
+            btls("<b>BackendTLSPolicy</b> -> Service<br/>verify backend cert (upstream TLS)"):::policy
+            eep("<b>EnvoyExtensionPolicy</b> -> Route<br/>Wasm / Lua / external processing"):::policy
+            epx("<b>EnvoyProxy</b> -> GatewayClass/Gateway<br/>proxy shape: replicas, resources, bootstrap"):::policy
+        end
+
+        gc -- "gatewayClassName" --> gw
+        gw -- "parentRefs + sectionName" --> route
+        rg -. "permits" .-> route
+    end
+
+    %% ===================== ENVOY GATEWAY CONTROLLER (envoy-gateway pod) =====================
+    subgraph EG["ENVOY GATEWAY CONTROLLER - envoy-gateway pod (compiles CRDs to Envoy config)"]
+        direction TB
+
+        provider("<b>Provider + Resource Watcher</b><br/>watch CRDs via K8s informers<br/>publish to the message bus"):::ctrl
+        bus{{"<b>Watchable message bus</b><br/>in-process pub/sub, dedup by deep-equal"}}:::bus
+        translator("<b>Gateway API Translator</b><br/>merge resources + policies<br/>produce Intermediate Representation"):::ctrl
+
+        infraIR("<b>Infra IR</b><br/>desired proxy infrastructure"):::ir
+        xdsIR("<b>xDS IR</b><br/>desired proxy configuration"):::ir
+
+        infraMgr("<b>Infra Manager</b><br/>provision Envoy Deployment + Service<br/>(shaped by EnvoyProxy CRD)"):::ctrl
+        xdsTr("<b>xDS Translator</b><br/>build Listener / Route /<br/>Cluster / Endpoint / Secret + filters"):::ctrl
+        xdsSrv("<b>xDS Server</b> (gRPC)<br/>Go Control Plane, Delta xDS<br/>zero-downtime config push"):::ctrl
+        status("<b>Status Updater</b><br/>write Accepted / Programmed to .status"):::ctrl
+
+        provider -- "publish" --> bus
+        bus -- "subscribe" --> translator
+        translator --> infraIR
+        translator --> xdsIR
+        infraIR --> infraMgr
+        xdsIR --> xdsTr
+        xdsTr --> xdsSrv
+        translator -.-> status
+    end
+
+    %% ===================== DATA PLANE (envoy proxy request pipeline) =====================
+    subgraph DATA["DATA PLANE - envoy proxy fleet (request pipeline, top to bottom)"]
+        direction TB
+
+        lis("<b>Listener</b> :80 / :443<br/>driven by Gateway + ClientTrafficPolicy"):::flow
+        tlsd("<b>Downstream TLS</b><br/>terminate with Gateway certificateRefs"):::flow
+        hf("<b>HTTP filter chain</b><br/>CORS + JWT/auth -> SecurityPolicy<br/>rate limit -> BackendTrafficPolicy"):::filter
+        rt("<b>Router</b><br/>match HTTPRoute rule, pick Cluster"):::flow
+        cl("<b>Cluster</b><br/>LB + retry + timeout + circuit break<br/>driven by BackendTrafficPolicy"):::flow
+        tlsu("<b>Upstream TLS</b><br/>re-encrypt, verify per BackendTLSPolicy"):::filter
+
+        lis --> tlsd --> hf --> rt --> cl --> tlsu
+    end
+
+    rls[("<b>Rate Limit Service</b><br/>Redis-backed global counters")]:::ext
+    bweb("svc-app : 80<br/>HTTP backend"):::svc
+    bcan("svc-canary : 8080<br/>weighted / header split"):::svc
+    bgrpc("svc-grpc : 9000<br/>gRPC backend"):::svc
+
+    %% ===================== WIRING =====================
+    gw -.-> provider
+    route -.-> provider
+    POLICIES -.-> provider
+
+    infraMgr == "provision / scale" ==> lis
+    xdsSrv == "push xDS config" ==> hf
+    status -. "report status" .-> gw
+
+    client == "HTTPS / gRPC request" ==> lis
+    hf <-. "check / increment" .-> rls
+    tlsu -- "HTTP" --> bweb
+    tlsu -- "canary" --> bcan
+    tlsu -- "HTTP/2" --> bgrpc
+
+    %% ===================== STYLES =====================
+    classDef client   fill:#334155,stroke:#475569,color:#f8fafc,stroke-width:1px,rx:14,ry:14
+    classDef infra    fill:#f3effe,stroke:#a78bfa,color:#5b21b6,stroke-width:1px,rx:14,ry:14
+    classDef operator fill:#eaf2fe,stroke:#93c5fd,color:#1d4ed8,stroke-width:1px,rx:14,ry:14
+    classDef dev      fill:#e6faf0,stroke:#6ee7b7,color:#047857,stroke-width:1px,rx:14,ry:14
+    classDef policy   fill:#f6effa,stroke:#c89be0,color:#7a2e8f,stroke-width:1px,rx:14,ry:14
+    classDef ctrl     fill:#fef6e4,stroke:#fcd34d,color:#b45309,stroke-width:1px,rx:14,ry:14
+    classDef ir       fill:#fdf0d5,stroke:#f0c674,color:#92600c,stroke-width:1px,rx:14,ry:14
+    classDef bus      fill:#eef2f8,stroke:#9fb6d4,color:#3f5878,stroke-width:1px
+    classDef flow     fill:#fdecec,stroke:#fca5a5,color:#b91c1c,stroke-width:1px,rx:14,ry:14
+    classDef filter   fill:#fde8d6,stroke:#fbbf77,color:#9a3412,stroke-width:1px,rx:14,ry:14
+    classDef ext      fill:#f6e1ea,stroke:#e8a3bf,color:#9d174d,stroke-width:1px,rx:12,ry:12
+    classDef svc      fill:#eef1f6,stroke:#cbd5e1,color:#334155,stroke-width:1px,rx:12,ry:12
+
+    style CONTROL  fill:#f1f0f7,stroke:#dcd9ec,stroke-width:1.5px,color:#6b6586,rx:18,ry:18
+    style POLICIES fill:#f7f1fb,stroke:#e4d2ee,stroke-width:1px,color:#7a5d86,rx:14,ry:14
+    style EG       fill:#fbf6ea,stroke:#ecdcb8,stroke-width:1.5px,color:#806a47,rx:18,ry:18
+    style DATA     fill:#f3eeec,stroke:#e2d6d2,stroke-width:1.5px,color:#80665f,rx:18,ry:18
+
+    linkStyle default stroke:#cbd5e1,stroke-width:1.5px
