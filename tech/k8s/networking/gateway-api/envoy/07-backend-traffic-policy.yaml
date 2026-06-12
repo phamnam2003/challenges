@@ -1,0 +1,100 @@
+# =============================================================================
+# BackendTrafficPolicy - RESILIENCE (upstream) CHO STACK "shop API"
+# =============================================================================
+# Vai trò: cấu hình chiều Envoy -> backend (circuit breaker, retry, timeout,
+# rate limit, health check). File này có 2 policy ở 2 mức khác nhau:
+#
+#   Gateway(main-gateway)  ◄── gw-resilience      (mức Gateway: default cho MỌI route)   ops
+#         │
+#   HTTPRoute(shop-api)    ◄── shop-api-ratelimit  (mức route: chỉ shop-api)             dev
+#
+# THỨ TỰ ƯU TIÊN (cao -> thấp): route+sectionName > route > listener > gateway.
+# Vì vậy rate limit ở mức route KHÔNG bị resilience mức gateway đè; chúng bổ sung cho nhau.
+# =============================================================================
+
+# === RESILIENCE BASELINE (ops set ở Gateway, áp cho mọi route) ===
+# Bảo vệ mọi backend khỏi quá tải + tự loại endpoint lỗi mà không cần cấu hình từng route.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: gw-resilience
+  namespace: gateway-infra                  # cùng ns Gateway
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: main-gateway                      # -> 03-gateway.yaml
+
+  # --- CIRCUIT BREAKER --- mỗi ngưỡng default 1024; chặn cascade failure khi backend chậm
+  circuitBreaker:
+    maxConnections: 1024                    # (default: 1024) tổng kết nối tới 1 backend
+    maxPendingRequests: 1024                # (default: 1024) request chờ kết nối; 0 = không cho hàng đợi (fail fast)
+    maxParallelRequests: 1024               # (default: 1024) request đồng thời
+    maxParallelRetries: 1024                # (default: 1024) retry đồng thời - chặn retry storm làm sập backend
+    maxRequestsPerConnection: 100           # (default: unlimited) ép tạo kết nối mới, giúp re-balance khi backend scale
+
+  # --- RETRY --- chỉ retry lỗi tạm thời; SAI retryOn nhân đôi tải khi backend thật sự chết
+  retry:
+    numRetries: 2                           # (default: 2) số lần thử lại, KHÔNG tính request gốc
+    perRetry:
+      timeout: 2s                           # timeout mỗi lần thử (nên <= backendRequest của HTTPRoute shop-api)
+      backOff:
+        baseInterval: 100ms                 # (default: 100ms) delay khởi điểm giữa các lần retry
+        maxInterval: 1s                     # (default: 10x baseInterval) trần delay
+    retryOn:
+      triggers:                             # chỉ retry lỗi kết nối / 5xx tạm thời, KHÔNG retry 4xx (lỗi client)
+      - connect-failure
+      - reset
+      - gateway-error
+      httpStatusCodes: [503]                # retry thêm khi backend trả 503
+
+  # --- TIMEOUT --- LƯU Ý v1.8+: 0s = vô hạn (trước đây là timeout tức thì)
+  timeout:
+    tcp:
+      connectTimeout: 5s                    # (default: 10s) timeout bắt tay TCP tới backend
+    http:
+      connectionIdleTimeout: 1h             # (default: 1h) đóng kết nối upstream rảnh
+      maxConnectionDuration: 0s             # (default: 0s = vô hạn) tuổi tối đa 1 kết nối
+
+  # --- PASSIVE HEALTH CHECK (outlier detection) --- tự eject endpoint lỗi liên tục, không cần probe chủ động
+  healthCheck:
+    passive:
+      interval: 5s                          # chu kỳ quét thống kê lỗi
+      consecutive5XxErrors: 5               # 5 lỗi 5xx liên tiếp -> eject endpoint
+      baseEjectionTime: 30s                 # thời gian eject tối thiểu, tăng dần nếu tiếp tục lỗi
+      maxEjectionPercent: 50                # (0-100) không eject quá 50% endpoint, tránh mất hết backend
+---
+# === GLOBAL RATE LIMIT PER-USER (dev set ở shop-api) ===
+# Giới hạn 100 req/phút mỗi user trên shop-api. CẦN Redis cấu hình lúc cài EG, nếu không policy bị bỏ qua âm thầm.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: shop-api-ratelimit
+  namespace: app-team                       # cùng ns HTTPRoute shop-api
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: shop-api                          # -> 05-httproute.yaml (chỉ giới hạn route này)
+  rateLimit:
+    type: Global                            # Global = chia counter qua mọi Envoy instance (cần Redis); Local = token bucket per-proxy
+    global:
+      rules:
+      # User đã đăng nhập: tách bucket theo x-user-sub - chính là header mà SecurityPolicy(shop-api-auth)
+      # bơm từ claim "sub" của JWT (claimToHeaders). Nhờ vậy mỗi user thật có hạn mức riêng, không gian lận được.
+      - clientSelectors:
+        - headers:
+          - name: x-user-sub                # khớp claimToHeaders trong 06-security-policy.yaml
+            type: Distinct                  # (default: Exact) Distinct = mỗi giá trị (mỗi user) một bucket riêng
+        limit:
+          requests: 100
+          unit: Minute                      # Second | Minute | Hour | Day
+        shared: false                       # (default: false) bucket riêng cho route này
+      # Client ẩn danh (chưa đăng nhập, không có x-user-sub): siết theo IP nguồn để chống abuse
+      - clientSelectors:
+        - sourceCIDR:
+            type: Distinct
+            value: 0.0.0.0/0                # Distinct trên toàn dải = mỗi IP một bucket (IP lấy từ ClientTrafficPolicy XFF)
+        limit:
+          requests: 1000
+          unit: Minute

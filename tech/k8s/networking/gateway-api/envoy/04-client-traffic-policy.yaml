@@ -1,0 +1,60 @@
+# =============================================================================
+# ClientTrafficPolicy - HÀNH VI PHÍA CLIENT (downstream) CHO main-gateway
+# =============================================================================
+# Vai trò: cấu hình lớp kết nối TỪ client/nginx TỚI Envoy (TLS, client IP,
+# keepalive, giới hạn kết nối). Chỉ gắn được vào Gateway, KHÔNG gắn vào Route.
+#
+#   [nginx node ngoài] --(set X-Forwarded-For)--> Envoy
+#                                                   ▲ targetRefs
+#                                          Gateway(main-gateway)   03-gateway.yaml
+#
+# Vì sao tách khỏi BackendTrafficPolicy: Client = chiều downstream (client<->Envoy),
+# Backend = chiều upstream (Envoy<->Service). Hai chiều có vòng đời và tham số riêng.
+# =============================================================================
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: shop-frontend-hardening
+  namespace: gateway-infra                  # cùng namespace với Gateway (bắt buộc - ClientTrafficPolicy không target cross-namespace)
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: main-gateway                      # áp cho mọi listener của main-gateway
+    # sectionName: https                    # bỏ trống = mọi listener; điền tên listener để scope riêng
+
+  tls:
+    minVersion: "1.2"                       # (default: 1.2) chặn TLS 1.0/1.1 đã lỗi thời
+    maxVersion: "1.3"                       # (default: 1.3)
+    alpnProtocols:                          # (default: [h2, http/1.1]) protocol đàm phán trong TLS handshake
+    - h2
+    - http/1.1
+
+  # --- CLIENT IP THẬT QUA nginx ---
+  # Bare-metal: nginx node ngoài proxy_pass xuống NodePort và set X-Forwarded-For.
+  # Envoy thấy IP nguồn L4 = IP nginx; client IP thật nằm trong XFF. numTrustedHops cho
+  # Envoy biết tin mấy hop cuối XFF. SAI giá trị = rate limit / log / authz nhầm IP nginx.
+  clientIPDetection:
+    xForwardedFor:
+      numTrustedHops: 1                     # đếm từ phải XFF; =1 vì chỉ có 1 nginx tin cậy phía trước Envoy
+
+  # tcpKeepalive: giữ kết nối sống, tránh nginx/firewall đóng kết nối idle (gây RST bất ngờ giữa nginx và Envoy)
+  tcpKeepalive:
+    idleTime: 20m                           # (default: 7200s) thời gian idle trước khi gửi probe
+    interval: 60s                           # (default: 75s) khoảng giữa các probe
+    probes: 3                               # (default: 9) số probe fail trước khi đóng
+
+  timeout:
+    http:
+      requestReceivedTimeout: 10s           # timeout nhận full request header từ client - chống slowloris
+      idleTimeout: 1h                       # (default: 1h) đóng kết nối HTTP khi idle
+
+  connection:
+    bufferLimit: 32Ki                       # (default: 32768) buffer đọc/ghi per-connection
+    connectionLimit:
+      value: 50000                          # trần kết nối đồng thời lên Envoy - chống connection exhaustion
+      closeDelay: 1s                        # delay trước khi đóng khi vượt limit, cho client nhận response
+
+  headers:
+    enableEnvoyHeaders: false               # (default: false) true = thêm x-envoy-* (lộ nội bộ, chỉ bật khi debug)
+    withUnderscoresAction: RejectRequest    # (default: RejectRequest) reject header có dấu "_" - chống header smuggling

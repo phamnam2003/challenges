@@ -1,0 +1,32 @@
+# =============================================================================
+# GatewayClass - LỚP NỀN CỦA STACK "shop API"
+# =============================================================================
+# Vai trò: khai báo "loại" Gateway nào sẽ do Envoy Gateway quản lý, và gắn cấu
+# hình data plane (EnvoyProxy) cho toàn bộ Gateway thuộc class này.
+#
+# Vị trí trong chuỗi tham chiếu:
+#   GatewayClass(eg) --parametersRef--> EnvoyProxy(prod-proxy)   [01-envoy-proxy.yaml]
+#         ^
+#         |  gatewayClassName: eg
+#   Gateway(main-gateway)                                        [03-gateway.yaml]
+#
+# GatewayClass là cluster-scoped (không namespace). Khi Gateway đặt
+# gatewayClassName: eg, controller đọc parametersRef ở đây để biết phải
+# provision Envoy với cấu hình NodePort/HPA/telemetry trong 01-envoy-proxy.yaml.
+# =============================================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eg                                                        # Gateway tham chiếu qua gatewayClassName: eg
+spec:
+  # controllerName phải khớp CHÍNH XÁC chuỗi mà Envoy Gateway quảng bá.
+  # Sai một ký tự = không controller nào nhận GatewayClass -> mọi Gateway treo ở trạng thái không Accepted.
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+
+  # parametersRef gắn cấu hình data plane cho MỌI Gateway dùng class này.
+  # Bỏ block này = Envoy chạy mặc định (Service LoadBalancer, không HPA) - không hợp bare-metal.
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: prod-proxy
+    namespace: envoy-gateway-system                              # bắt buộc có namespace vì GatewayClass cluster-scoped không suy ra được ns

@@ -1,0 +1,35 @@
+# =============================================================================
+# BackendTLSPolicy - RE-ENCRYPT TỪ Envoy LÊN Service(shop)
+# =============================================================================
+# Vai trò: mảnh cuối của chuỗi TLS end-to-end. Gateway(main-gateway) terminate
+# TLS của client; mặc định Envoy sẽ nối PLAINTEXT tới backend. Policy này ép
+# Envoy mã hóa lại (re-encrypt) và verify cert của Service(shop) - mô hình zero-trust trong cluster.
+#
+#   client --TLS--> Envoy (terminate, 03-gateway.yaml) --TLS lại--> Service(shop):https
+#                                                        ▲ targetRefs
+#                                            BackendTLSPolicy(shop-backend-tls)
+#
+# Khớp với phần còn lại của stack:
+#   - HTTPRoute(shop-api) trỏ backendRefs vào Service(shop) cổng "https" (8443) -> chính Service bị target ở đây.
+#   - Lưu ý apiGroup KHÁC các policy của Envoy: đây là CRD chuẩn Gateway API (gateway.networking.k8s.io/v1alpha3),
+#     không phải gateway.envoyproxy.io. Cần cài Gateway API CRD kênh experimental (xem INSTALL.md).
+# =============================================================================
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: shop-backend-tls
+  namespace: app-team                       # cùng ns với Service shop
+spec:
+  targetRefs:
+  - group: ""                               # core group cho Service
+    kind: Service                           # BackendTLSPolicy CHỈ target được Service (không target Route/Backend)
+    name: shop                              # -> Service mà HTTPRoute(shop-api) route tới
+    sectionName: https                      # tên CỔNG của Service (cổng tên "https"), không phải số port
+  validation:
+    caCertificateRefs:                      # EG hỗ trợ ConfigMap | ClusterTrustBundle (KHÔNG hỗ trợ Secret ở đây)
+    - name: backend-ca                      # ConfigMap chứa CA dùng verify cert của shop (vd do cert-manager phát hành)
+      group: ""
+      kind: ConfigMap
+    # hostname = SNI Envoy gửi đi + giá trị phải khớp CN/SAN trong cert của shop.
+    # SAI hostname = handshake fail -> client nhận 503 dù backend vẫn sống.
+    hostname: shop.app-team.svc.cluster.local

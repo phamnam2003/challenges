@@ -1,0 +1,59 @@
+# =============================================================================
+# HTTPRoute - ĐỊNH TUYẾN shop.example.com VÀO Service(shop)
+# =============================================================================
+# Vai trò: nối Gateway(main-gateway) tới ứng dụng, và là "neo" cho 2 policy mức
+# route (SecurityPolicy shop-api-auth, BackendTrafficPolicy shop-api-ratelimit).
+#
+#   Gateway(main-gateway, gateway-infra)
+#        ▲ parentRefs (cross-namespace: cần Gateway cho phép qua allowedRoutes)
+#        │
+#   HTTPRoute(shop-api, app-team) ──backendRefs──> Service(shop):https  (cùng ns app-team)
+#        ▲
+#        │ targetRefs (mức route)
+#        ├── SecurityPolicy(shop-api-auth)        06-security-policy.yaml
+#        └── BackendTrafficPolicy(shop-api-ratelimit)  07-backend-traffic-policy.yaml
+#
+# TIỀN ĐỀ (do app-team tự tạo, không nằm trong bộ example này):
+#   - Service "shop" trong ns app-team, có cổng tên "https" (vd 8443) backend tự serve TLS.
+#     (HTTPRoute trỏ vào cổng "https" này; BackendTLSPolicy verify cert của nó.)
+#   - Namespace app-team phải có nhãn gateway-access=true để attach vào listener https.
+# =============================================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: shop-api                            # tên được tham chiếu bởi SecurityPolicy + BackendTrafficPolicy (targetRefs)
+  namespace: app-team
+spec:
+  parentRefs:
+  - name: main-gateway
+    namespace: gateway-infra                # bắt buộc khi Gateway ở namespace khác
+    sectionName: https                      # chỉ attach vào listener "https"; bỏ field = attach mọi listener (kể cả http)
+
+  hostnames:
+  - "shop.example.com"                      # phải nằm trong "*.example.com" của listener, nếu không route bị từ chối
+
+  rules:
+  # Rule 1 - canary theo header: đặt TRƯỚC rule chung để được ưu tiên match
+  - matches:
+    - headers:
+      - type: Exact
+        name: x-env
+        value: canary
+    backendRefs:
+    - name: shop-canary
+      port: 8443
+  # Rule 2 - traffic chính: chia tải 90/10 stable vs canary
+  - matches:
+    - path:
+        type: PathPrefix                    # ưu tiên PathPrefix/Exact hơn regex (regex phức tạp gây 404 toàn route - xem README)
+        value: /
+    backendRefs:
+    - name: shop                            # Service mà BackendTLSPolicy(shop-backend-tls) sẽ verify TLS
+      port: 8443                            # cổng tên "https" của Service shop
+      weight: 90
+    - name: shop-canary
+      port: 8443
+      weight: 10
+    timeouts:
+      request: 15s                          # timeout toàn request (client -> backend -> client); 0s = vô hạn từ v1.8
+      backendRequest: 5s                    # timeout mỗi lần thử tới backend; phối hợp với retry trong BackendTrafficPolicy

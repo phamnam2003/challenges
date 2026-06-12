@@ -1,0 +1,61 @@
+# =============================================================================
+# Gateway - ĐIỂM VÀO TRAFFIC CỦA STACK "shop API"
+# =============================================================================
+# Đây là resource trung tâm; mọi file khác đều quy chiếu về cái tên main-gateway
+# hoặc về HTTPRoute/Service nằm phía sau nó. SƠ ĐỒ TOÀN STACK:
+#
+#   02-gatewayclass.yaml      GatewayClass(eg) ──parametersRef──> EnvoyProxy(prod-proxy)  01-envoy-proxy.yaml
+#                                 ▲                                   (NodePort 30080/30443, bare-metal)
+#                                 │ gatewayClassName: eg
+#   03-gateway.yaml  ►►►  Gateway(main-gateway, ns=gateway-infra)
+#                                 │  listener https:443  (Secret wildcard-tls)
+#                                 │
+#         ┌───────────────────────┼──────────────────────────────┐
+#         │ targetRefs: Gateway   │ parentRefs: Gateway           │ targetRefs: Gateway
+#         ▼                       ▼                               ▼
+#   ClientTrafficPolicy     HTTPRoute(shop-api, ns=app-team)   BackendTrafficPolicy(gw-resilience)
+#   04-client-traffic-policy.yaml     │  backendRefs: Service(shop):https   07-backend-traffic-policy.yaml
+#                                  │
+#                ┌─────────────────┼─────────────────┐
+#                │ targetRefs:Route │ targetRefs:Route │ targetRefs: Service(shop)
+#                ▼                  ▼                  ▼
+#         SecurityPolicy   BackendTrafficPolicy   BackendTLSPolicy(shop-backend-tls)
+#         (shop-api-auth)  (shop-api-ratelimit)   08-backend-tls-policy.yaml
+#         06-security-policy.yaml  07-backend-traffic-policy.yaml
+#
+# Mô hình 2 namespace: ops sở hữu gateway-infra (Gateway + EnvoyProxy), dev sở
+# hữu app-team (HTTPRoute + app + policy mức route). Tách quyền theo namespace.
+# =============================================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: main-gateway                        # tên được tham chiếu bởi: HTTPRoute.parentRefs, ClientTrafficPolicy, BackendTrafficPolicy
+  namespace: gateway-infra
+spec:
+  gatewayClassName: eg                      # -> GatewayClass(eg) -> EnvoyProxy(prod-proxy): quyết định Envoy chạy thế nào
+
+  listeners:
+  # --- Listener HTTP: chỉ để redirect sang HTTPS, không phục vụ app ---
+  - name: http
+    port: 80                                # tạo cổng Service tên "http-80" -> 01-envoy-proxy.yaml pin nodePort 30080
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same                          # chỉ HTTPRoute trong gateway-infra (route redirect do ops quản) attach được vào http
+
+  # --- Listener HTTPS: nơi shop-api thực sự gắn vào ---
+  - name: https
+    port: 443                               # tạo cổng Service tên "https-443" -> 01-envoy-proxy.yaml pin nodePort 30443
+    protocol: HTTPS
+    hostname: "*.example.com"               # listener bao mọi subdomain; HTTPRoute siết hostname cụ thể (shop.example.com)
+    tls:
+      mode: Terminate                       # Envoy terminate TLS ở biên; tới backend mã hóa lại bằng BackendTLSPolicy (re-encrypt)
+      certificateRefs:
+      - name: wildcard-tls                  # Secret kubernetes.io/tls, PHẢI cùng namespace gateway-infra (khác ns cần ReferenceGrant)
+        kind: Secret
+    allowedRoutes:
+      namespaces:
+        from: Selector                      # không cho mọi ns tự attach; chỉ ns có nhãn dưới đây
+        selector:
+          matchLabels:
+            gateway-access: "true"          # app-team PHẢI có nhãn này: kubectl label ns app-team gateway-access=true

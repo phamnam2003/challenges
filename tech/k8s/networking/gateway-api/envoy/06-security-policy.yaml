@@ -1,0 +1,71 @@
+# =============================================================================
+# SecurityPolicy - XÁC THỰC & PHÂN QUYỀN CHO HTTPRoute(shop-api)
+# =============================================================================
+# Vai trò: chèn lớp auth vào ĐÚNG route shop-api (không phải toàn Gateway), gồm
+# JWT (xác thực) + CORS (cho browser) + authorization (chặn /admin theo role).
+#
+#   HTTPRoute(shop-api, app-team)   05-httproute.yaml
+#        ▲ targetRefs (mức route -> chỉ shop-api bị áp auth, route khác không ảnh hưởng)
+#   SecurityPolicy(shop-api-auth)
+#
+# Thứ tự thực thi trong Envoy: CORS preflight -> JWT verify -> authorization.
+# Vì vậy OPTIONS (preflight) phải lọt qua trước khi JWT chặn -> CORS xử lý sớm.
+# =============================================================================
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: shop-api-auth
+  namespace: app-team                       # cùng ns với HTTPRoute shop-api
+spec:
+  targetRefs:                               # bắt buộc 1 trong targetRefs / targetSelectors
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: shop-api                          # -> 05-httproute.yaml
+
+  # --- JWT: xác thực token Bearer, reject 401 nếu sai/thiếu ---
+  jwt:
+    providers:
+    - name: auth0                           # tên provider duy nhất - authorization.principal.jwt.provider trỏ lại tên này
+      issuer: https://your-tenant.auth0.com/  # SAI issuer = mọi token bị reject 401 (phải khớp claim "iss")
+      audiences:                            # token thiếu aud này -> reject; để trống = bỏ qua kiểm tra aud
+      - https://api.shop.example.com
+      remoteJWKS:
+        uri: https://your-tenant.auth0.com/.well-known/jwks.json  # Envoy tự fetch + cache khóa công khai để verify chữ ký
+      claimToHeaders:                       # copy claim sang header cho Service(shop) đọc, khỏi tự parse JWT
+      - claim: sub
+        header: x-user-sub
+      - claim: email
+        header: x-user-email
+      recomputeRoute: false                 # (default: false) true = chạy lại route matching sau khi thêm header
+
+  # --- CORS: cho phép browser tại shop.example.com gọi API ---
+  cors:
+    allowOrigins:
+    - "https://shop.example.com"            # tránh "*" khi allowCredentials=true (browser sẽ chặn response)
+    allowMethods:
+    - GET
+    - POST
+    - OPTIONS                               # THIẾU OPTIONS = preflight fail, FE báo lỗi CORS dù backend vẫn sống
+    allowHeaders:
+    - Authorization                         # cho phép gửi Bearer token mà JWT block ở trên cần
+    - Content-Type
+    exposeHeaders:
+    - x-request-id                          # header backend trả về mà browser được phép đọc
+    maxAge: 1h                              # cache kết quả preflight, giảm số OPTIONS request
+    allowCredentials: true                  # (default: false) cho phép gửi cookie/Authorization kèm request
+
+  # --- AUTHORIZATION: cho qua mặc định, chỉ chặn /admin nếu không phải role admin ---
+  authorization:
+    defaultAction: Allow                    # (default: Deny nếu có rules) - mặc định cho qua; siết riêng /admin bên dưới
+    rules:
+    - name: admin-only
+      action: Deny                          # rules duyệt theo thứ tự, match đầu tiên thắng
+      principal:
+        jwt:
+          provider: auth0                   # tham chiếu jwt.providers[].name ở trên
+          claims:
+          - name: role
+            valueType: String               # String | StringArray
+            values: ["admin"]               # request KHÔNG có role=admin -> bị Deny khỏi /admin
+      operation:
+        paths: ["/admin"]                   # rule chỉ áp cho path này

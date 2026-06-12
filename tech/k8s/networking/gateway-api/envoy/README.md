@@ -252,7 +252,7 @@ spec:
     http:
       requestReceivedTimeout: 30s   # timeout for receiving the full request from client
   tcpKeepalive:
-    idleTime: 1200           # keep TCP connections alive — prevents cloud LBs from closing idle connections
+    idleTime: 1200           # keep TCP connections alive - prevents the upstream nginx/firewall from closing idle connections
     probes: 3
 ---
 # BackendTLSPolicy — TLS from Gateway to backend

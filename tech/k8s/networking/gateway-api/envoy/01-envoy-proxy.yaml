@@ -1,0 +1,141 @@
+# =============================================================================
+# EnvoyProxy - CẤU HÌNH DATA PLANE (bare-metal) CHO STACK "shop API"
+# =============================================================================
+# Vai trò: tùy biến deployment Envoy mà controller tự provision. KHÔNG gắn vào
+# traffic trực tiếp; được GatewayClass(eg) trỏ tới qua parametersRef.
+#
+# Đường đi traffic trên BARE-METAL (không có cloud LB):
+#
+#   client ---> [nginx node ngoài] --proxy_pass--> NodePort 30080/30443
+#                                                       |
+#                                                       v
+#                                   Service(NodePort) cua Envoy  <-- file nay pin nodePort
+#                                                       |
+#                                                       v
+#                                          Envoy pod[s] (HPA 2..10)
+#                                                       |
+#                                                       v
+#                                   Gateway(main-gateway) -> HTTPRoute(shop-api) -> Service(shop)
+#
+# Lý do dùng NodePort cố định: nginx node ngoài cần một cổng tĩnh để proxy_pass.
+# Nếu để LoadBalancer (cần cloud) hoặc nodePort random, upstream nginx sẽ lệch cổng mỗi lần Service tạo lại.
+# =============================================================================
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: prod-proxy                                  # GatewayClass(eg).parametersRef trỏ vào đây
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+
+      # --- DEPLOYMENT --- không set replicas khi dùng HPA (HPA sở hữu số replica)
+      envoyDeployment:
+        container:
+          resources:
+            requests:                       # request = cơ sở để scheduler đặt pod + tính HPA utilization
+              cpu: 200m
+              memory: 256Mi
+            limits:                         # KHÔNG limit CPU cho proxy latency-sensitive (tránh throttle); chỉ giới hạn memory
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true              # chạy non-root - giảm tác động nếu proxy bị chiếm
+            allowPrivilegeEscalation: false
+        pod:
+          # topologySpreadConstraints: trải pod Envoy đều các node, tránh mất hết khi 1 node chết.
+          # Với externalTrafficPolicy: Cluster bên dưới đây chỉ phục vụ HA (Cluster route
+          # tới mọi node nên không drop khi node thiếu pod); nếu đổi sang Local thì nó thành BẮT BUỘC.
+          topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: ScheduleAnyway   # ScheduleAnyway = ưu tiên trải đều nhưng không chặn schedule khi thiếu node
+
+      # --- HPA --- tự scale data plane theo tải; thay cho replicas tĩnh
+      envoyHpa:
+        minReplicas: 2                      # tối thiểu 2 cho HA - 1 pod chết vẫn còn phục vụ
+        maxReplicas: 10
+        metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            target:
+              type: Utilization
+              averageUtilization: 70        # scale khi CPU trung bình vượt 70%
+
+      # --- PDB --- bảo toàn tối thiểu trong drain/upgrade node, tránh downtime
+      envoyPdb:
+        minAvailable: 1                     # luôn giữ ít nhất 1 pod sẵn sàng khi voluntary disruption
+
+      # --- SERVICE (BARE-METAL) --- điểm vào của nginx node ngoài
+      envoyService:
+        type: NodePort                      # bare-metal không có cloud LB; KHÔNG dùng LoadBalancer/MetalLB
+        # Cluster: MỌI node đều nhận traffic NodePort rồi kube-proxy load-balance
+        # nội bộ tới pod Envoy ở node bất kỳ. Đánh đổi: thêm 1 hop SNAT -> mất client
+        # IP thật ở L4 (lấy lại qua X-Forwarded-For / ClientTrafficPolicy ở L7).
+        # Vì sao KHÔNG dùng Local ở đây:
+        #  - Local chỉ mở cổng trên node đang chạy pod Envoy; nginx node ngoài
+        #    proxy_pass tới node rỗng pod -> connection refused / health check fail.
+        #  - Pod Envoy do HPA scale 2..10 và topologySpread chỉ ScheduleAnyway nên
+        #    tập node-có-pod thay đổi liên tục; nginx upstream tĩnh không thể bám theo.
+        #  - Cluster cho phép nginx proxy_pass tới BẤT KỲ node nào -> upstream đơn giản, ổn định.
+        # Cần giữ client IP thật ở L4 thì mới đổi lại Local + cố định tập node có pod.
+        externalTrafficPolicy: Cluster      # (default: Local)
+        # Pin nodePort cố định: mặc định NodePort cấp cổng random 30000-32767.
+        # JSONMerge (RFC 7396) THAY NGUYEN mảng ports, không ghép từng phần như
+        # StrategicMerge -> phải khai đủ 5 field mỗi entry (name, port, targetPort,
+        # protocol, nodePort), thiếu field nào Service mất field đó.
+        # Vì sao JSONMerge thay vì StrategicMerge: key ghép của ports không ổn định
+        # khi nhiều port trùng số, JSONMerge là cách cộng đồng EG dùng để pin nodePort.
+        # name = "<protocol>-<listenerPort>" do EG sinh; targetPort = listenerPort+10000
+        # (mặc định EG cho cổng <1024 để Envoy chạy non-root). VERIFY trc khi apply:
+        #   kubectl -n envoy-gateway-system get svc \
+        #     -l gateway.envoyproxy.io/owning-gateway-name=main-gateway -o yaml
+        patch:
+          type: JSONMerge
+          value:
+            spec:
+              ports:
+              - name: http-80
+                port: 80
+                targetPort: 10080
+                protocol: TCP
+                nodePort: 30080             # nginx: proxy_pass http -> <node>:30080
+              - name: https-443
+                port: 443
+                targetPort: 10443
+                protocol: TCP
+                nodePort: 30443             # nginx: stream proxy_pass https -> <node>:30443 (passthrough), hoặc 30080 nếu nginx tự terminate TLS
+
+  # --- SHUTDOWN --- drain kết nối cũ trước khi tắt, tránh đứt request khi rollout
+  shutdown:
+    drainTimeout: 60s                       # thời gian drain kết nối đang mở (set explicit, đừng tin default)
+    minDrainDuration: 10s                   # drain tối thiểu để upstream nginx kịp rút node khỏi rotation
+
+  # --- LOGGING ---
+  logging:
+    level:
+      default: warn                         # (default: warn) production để warn; bật info/debug khi cần điều tra
+
+  # --- TELEMETRY --- Prometheus metrics bật sẵn; thêm access log JSON để phân tích
+  telemetry:
+    metrics:
+      prometheus: {}                        # (default: bật) scrape ở :19001/stats/prometheus
+    accessLog:
+      settings:
+      - format:
+          type: JSON                        # JSON để log collector parse dễ hơn Text
+        sinks:
+        - type: File
+          file:
+            path: /dev/stdout               # ghi ra stdout cho fluent-bit/loki thu gom
+
+  # --- BOOTSTRAP --- tăng giới hạn re2: regex phức tạp trong path match gây 404 toàn bộ route sau restart
+  bootstrap:
+    type: Merge                             # Merge = ghép vào bootstrap mặc định; Replace = thay toàn bộ (rủi ro cao)
+    value: |
+      layered_runtime:
+        layers:
+        - name: static-runtime
+          static_layer:
+            re2.max_program_size.error_level: 1000
