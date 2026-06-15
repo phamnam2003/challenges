@@ -11,10 +11,11 @@
 #
 # Khớp với phần còn lại của stack:
 #   - HTTPRoute(shop-api) trỏ backendRefs vào Service(shop) cổng "https" (8443) -> chính Service bị target ở đây.
-#   - Lưu ý apiGroup KHÁC các policy của Envoy: đây là CRD chuẩn Gateway API (gateway.networking.k8s.io/v1alpha3),
-#     không phải gateway.envoyproxy.io. Cần cài Gateway API CRD kênh experimental (xem INSTALL.md).
+#   - Lưu ý apiGroup KHÁC các policy của Envoy: đây là CRD chuẩn Gateway API (gateway.networking.k8s.io/v1),
+#     không phải gateway.envoyproxy.io. BackendTLSPolicy đã GA vào STANDARD channel từ Gateway API v1.4
+#     (10/2025); bản cũ v1alpha3 ở experimental. Cần Gateway API CRD >= v1.4 (xem INSTALL.md).
 # =============================================================================
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: shop-backend-tls
@@ -30,6 +31,6 @@ spec:
     - name: backend-ca                      # ConfigMap chứa CA dùng verify cert của shop (vd do cert-manager phát hành)
       group: ""
       kind: ConfigMap
-    # hostname = SNI Envoy gửi đi + giá trị phải khớp CN/SAN trong cert của shop.
+    # hostname = SNI Envoy gửi đi + phải khớp SAN trong cert của shop (Envoy verify theo SAN, bỏ qua CN).
     # SAI hostname = handshake fail -> client nhận 503 dù backend vẫn sống.
     hostname: shop.app-team.svc.cluster.local

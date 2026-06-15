@@ -2,7 +2,8 @@
 # EnvoyProxy - CẤU HÌNH DATA PLANE (bare-metal) CHO STACK "shop API"
 # =============================================================================
 # Vai trò: tùy biến deployment Envoy mà controller tự provision. KHÔNG gắn vào
-# traffic trực tiếp; được GatewayClass(eg) trỏ tới qua parametersRef.
+# traffic trực tiếp; được Gateway(main-gateway) trỏ tới qua spec.infrastructure.parametersRef
+# (theo recommend docs EG: attach EnvoyProxy mức Gateway thay vì mức GatewayClass).
 #
 # Đường đi traffic trên BARE-METAL (không có cloud LB):
 #
@@ -23,8 +24,11 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
-  name: prod-proxy                                  # GatewayClass(eg).parametersRef trỏ vào đây
-  namespace: envoy-gateway-system
+  name: prod-proxy                                  # Gateway(main-gateway).spec.infrastructure.parametersRef trỏ vào đây
+  # PHẢI cùng namespace với Gateway: infrastructure.parametersRef là LocalParametersReference (không có field namespace).
+  # Data plane (Deployment/Service Envoy) VẪN do controller tạo trong envoy-gateway-system (standard deployment mode)
+  # -> lệnh verify Service ở dưới vẫn dùng -n envoy-gateway-system; chỉ CR EnvoyProxy này đổi về gateway-infra.
+  namespace: gateway-infra
 spec:
   provider:
     type: Kubernetes
@@ -40,7 +44,7 @@ spec:
             limits:                         # KHÔNG limit CPU cho proxy latency-sensitive (tránh throttle); chỉ giới hạn memory
               memory: 512Mi
           securityContext:
-            runAsNonRoot: true              # chạy non-root - giảm tác động nếu proxy bị chiếm
+            runAsNonRoot: true              # củng cố default - EG vốn chạy Envoy non-root (đây là lý do có cơ chế targetPort +10000)
             allowPrivilegeEscalation: false
         pod:
           # topologySpreadConstraints: trải pod Envoy đều các node, tránh mất hết khi 1 node chết.
@@ -107,10 +111,12 @@ spec:
                 protocol: TCP
                 nodePort: 30443             # nginx: stream proxy_pass https -> <node>:30443 (passthrough), hoặc 30080 nếu nginx tự terminate TLS
 
-  # --- SHUTDOWN --- drain kết nối cũ trước khi tắt, tránh đứt request khi rollout
+  # --- SHUTDOWN --- drain kết nối cũ trước khi tắt, tránh đứt request khi rollout.
+  # drainTimeout BẮT BUỘC < terminationGracePeriodSeconds; không set field đó ở đây nên
+  # dùng default EG (lớn hơn 60s) - đừng hạ terminationGracePeriodSeconds xuống dưới drainTimeout.
   shutdown:
-    drainTimeout: 60s                       # thời gian drain kết nối đang mở (set explicit, đừng tin default)
-    minDrainDuration: 10s                   # drain tối thiểu để upstream nginx kịp rút node khỏi rotation
+    drainTimeout: 60s                       # = default EG (60s); để explicit cho dễ đọc
+    minDrainDuration: 15s                   # > default EG (10s): thêm thời gian cho nginx node ngoài kịp rút node khỏi rotation
 
   # --- LOGGING ---
   logging:
@@ -130,12 +136,23 @@ spec:
           file:
             path: /dev/stdout               # ghi ra stdout cho fluent-bit/loki thu gom
 
-  # --- BOOTSTRAP --- tăng giới hạn re2: regex phức tạp trong path match gây 404 toàn bộ route sau restart
-  bootstrap:
-    type: Merge                             # Merge = ghép vào bootstrap mặc định; Replace = thay toàn bộ (rủi ro cao)
-    value: |
-      layered_runtime:
-        layers:
-        - name: static-runtime
-          static_layer:
-            re2.max_program_size.error_level: 1000
+  # --- FILTER ORDER --- đẩy CORS chạy TRƯỚC jwt_authn.
+  # Mặc định EG xếp jwt_authn -> rbac -> cors nên preflight OPTIONS (không kèm Bearer) bị JWT
+  # trả 401 trước khi CORS đáp -> hỏng CORS cho SPA (issue gateway#2312). Đưa cors lên trước
+  # để filter CORS đáp preflight sớm và short-circuit, không tới JWT. Chỉ cần khi có
+  # SecurityPolicy bật cả JWT lẫn CORS trên cùng route (xem 06-security-policy.yaml).
+  filterOrder:
+  - name: envoy.filters.http.cors
+    before: envoy.filters.http.jwt_authn
+
+  # --- BOOTSTRAP (re2) --- KHÔNG override (giải thích bên dưới).
+  # EG default đã set sẵn trong bootstrap mặc định:
+  #   layered_runtime.layers[global_config].static_layer:
+  #     re2.max_program_size.error_level: 4294967295   # max uint32 ~ vô hạn
+  #     re2.max_program_size.warn_level:  1000
+  # error_level càng CAO thì regex được phép càng phức tạp; 4294967295 = gần như không
+  # bao giờ reject -> EG đã chống sẵn lỗi "regex path match quá lớn gây 404 toàn route".
+  # Set error_level: 1000 ở đây là GIẢM giới hạn ~4 tỷ lần (Envoy reject regex có
+  # program-size > 1000) -> gây ĐÚNG cái lỗi 404 đang muốn tránh. Vì vậy bỏ hẳn block.
+  # Cơ chế: bootstrap type:Merge dùng proto.Merge -> repeated field "layers" bị APPEND
+  # (layer sau thắng), không phải deep-merge; để type rỗng sẽ mặc định về Replace.

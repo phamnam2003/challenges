@@ -33,7 +33,10 @@ spec:
   - "shop.example.com"                      # phải nằm trong "*.example.com" của listener, nếu không route bị từ chối
 
   rules:
-  # Rule 1 - canary theo header: đặt TRƯỚC rule chung để được ưu tiên match
+  # Rule 1 - canary theo header. Thắng match nhờ ĐỘ CỤ THỂ, KHÔNG phải nhờ đặt trước:
+  # Gateway API xếp ưu tiên exact path > prefix dài hơn > method > nhiều header match hơn >
+  # nhiều query match hơn; thứ tự trong list chỉ là tie-break CUỐI. Request x-env=canary khớp
+  # cả 2 rule nhưng rule này có 1 header match (rule 2 có 0) nên cụ thể hơn -> thắng dù đảo thứ tự.
   - matches:
     - headers:
       - type: Exact
@@ -42,6 +45,9 @@ spec:
     backendRefs:
     - name: shop-canary
       port: 8443
+    timeouts:                               # canary cũng cần trần timeout; bỏ trống = về default implementation (khó lường)
+      request: 15s
+      backendRequest: 5s
   # Rule 2 - traffic chính: chia tải 90/10 stable vs canary
   - matches:
     - path:
@@ -55,5 +61,5 @@ spec:
       port: 8443
       weight: 10
     timeouts:
-      request: 15s                          # timeout toàn request (client -> backend -> client); 0s = vô hạn từ v1.8
+      request: 15s                          # timeout toàn request (client -> backend -> client); 0s = TẮT timeout (chờ vô hạn) theo spec
       backendRequest: 5s                    # timeout mỗi lần thử tới backend; phối hợp với retry trong BackendTrafficPolicy

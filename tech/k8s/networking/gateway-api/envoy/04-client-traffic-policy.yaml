@@ -34,9 +34,15 @@ spec:
   # Bare-metal: nginx node ngoài proxy_pass xuống NodePort và set X-Forwarded-For.
   # Envoy thấy IP nguồn L4 = IP nginx; client IP thật nằm trong XFF. numTrustedHops cho
   # Envoy biết tin mấy hop cuối XFF. SAI giá trị = rate limit / log / authz nhầm IP nginx.
+  #
+  # ĐIỀU KIỆN TIÊN QUYẾT (bắt buộc): tin XFF chỉ an toàn khi client KHÔNG gọi thẳng được
+  # NodePort. Nhưng externalTrafficPolicy: Cluster (01) mở 30080/30443 trên MỌI node ->
+  # nếu client tới được <node-ip>:30080 trực tiếp thì họ kiểm soát hoàn toàn XFF và giả
+  # mạo client IP tùy ý (rate-limit/authz/log đều tin nhầm). PHẢI firewall NodePort chỉ
+  # chấp nhận source = IP nginx node (nftables/iptables trên node hoặc ACL ở biên).
   clientIPDetection:
     xForwardedFor:
-      numTrustedHops: 1                     # đếm từ phải XFF; =1 vì chỉ có 1 nginx tin cậy phía trước Envoy
+      numTrustedHops: 1                     # đếm hop tin cậy từ phải XFF; =1 vì chỉ có 1 nginx tin cậy phía trước Envoy
 
   # tcpKeepalive: giữ kết nối sống, tránh nginx/firewall đóng kết nối idle (gây RST bất ngờ giữa nginx và Envoy)
   tcpKeepalive:
@@ -57,4 +63,4 @@ spec:
 
   headers:
     enableEnvoyHeaders: false               # (default: false) true = thêm x-envoy-* (lộ nội bộ, chỉ bật khi debug)
-    withUnderscoresAction: RejectRequest    # (default: RejectRequest) reject header có dấu "_" - chống header smuggling
+    withUnderscoresAction: RejectRequest    # CHỦ ĐỘNG siết (Envoy default = ALLOW; EG không set default) - reject header có dấu "_" chống header smuggling

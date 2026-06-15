@@ -9,7 +9,10 @@
 #   HTTPRoute(shop-api)    ◄── shop-api-ratelimit  (mức route: chỉ shop-api)             dev
 #
 # THỨ TỰ ƯU TIÊN (cao -> thấp): route+sectionName > route > listener > gateway.
-# Vì vậy rate limit ở mức route KHÔNG bị resilience mức gateway đè; chúng bổ sung cho nhau.
+# QUAN TRỌNG: mặc định EG KHÔNG merge giữa các mức - policy CỤ THỂ hơn ĐÈ TOÀN BỘ policy cha
+# (không merge từng field). Nên shop-api-ratelimit (mức route) sẽ XÓA SẠCH circuitBreaker/
+# retry/timeout/healthCheck của gw-resilience trên shop-api nếu không bật merge. Muốn 2 policy
+# BỔ SUNG nhau thì route policy phải đặt mergeType (xem dưới; cần EG >= v1.8).
 # =============================================================================
 
 # === RESILIENCE BASELINE (ops set ở Gateway, áp cho mọi route) ===
@@ -48,7 +51,7 @@ spec:
       - gateway-error
       httpStatusCodes: [503]                # retry thêm khi backend trả 503
 
-  # --- TIMEOUT --- LƯU Ý v1.8+: 0s = vô hạn (trước đây là timeout tức thì)
+  # --- TIMEOUT --- 0s ở field dưới = vô hạn (tắt giới hạn), KHÔNG phải timeout tức thì
   timeout:
     tcp:
       connectTimeout: 5s                    # (default: 10s) timeout bắt tay TCP tới backend
@@ -76,6 +79,11 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: shop-api                          # -> 05-httproute.yaml (chỉ giới hạn route này)
+  # mergeType: gộp policy này VÀO gw-resilience (mức Gateway) thay vì đè sạch -> shop-api giữ
+  # circuitBreaker/retry/timeout/healthCheck của gateway VÀ thêm rateLimit dưới. StrategicMerge
+  # = merge thông minh (giữ field cha, thêm field con). Cần EG >= v1.8; chỉ đặt được ở policy
+  # mức con (route), KHÔNG đặt trên policy mức Gateway.
+  mergeType: StrategicMerge
   rateLimit:
     type: Global                            # Global = chia counter qua mọi Envoy instance (cần Redis); Local = token bucket per-proxy
     global:

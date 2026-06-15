@@ -23,10 +23,16 @@ spec:
   # Sai một ký tự = không controller nào nhận GatewayClass -> mọi Gateway treo ở trạng thái không Accepted.
   controllerName: gateway.envoyproxy.io/gatewayclass-controller
 
-  # parametersRef gắn cấu hình data plane cho MỌI Gateway dùng class này.
-  # Bỏ block này = Envoy chạy mặc định (Service LoadBalancer, không HPA) - không hợp bare-metal.
-  parametersRef:
-    group: gateway.envoyproxy.io
-    kind: EnvoyProxy
-    name: prod-proxy
-    namespace: envoy-gateway-system                              # bắt buộc có namespace vì GatewayClass cluster-scoped không suy ra được ns
+  # parametersRef MỨC GATEWAYCLASS đã TẮT (chuyển sang attach mức Gateway ở 03-gateway.yaml).
+  # Lý do: docs EG "discourage" gắn EnvoyProxy ở GatewayClass khi muốn mỗi Gateway một cấu
+  # hình hạ tầng riêng; gắn ở Gateway (spec.infrastructure.parametersRef) hợp scope hơn và
+  # khớp mô hình ops sở hữu gateway-infra (Gateway + EnvoyProxy cùng namespace). Nếu cả hai
+  # cùng set thì Gateway-level THẮNG. Không set ở đâu cả = Envoy default (Service LoadBalancer,
+  # không HPA) - không hợp bare-metal, nên 03 BẮT BUỘC có infrastructure.parametersRef.
+  # Bỏ comment block dưới nếu muốn 1 cấu hình data plane CHUNG cho mọi Gateway của class:
+  #
+  # parametersRef:
+  #   group: gateway.envoyproxy.io
+  #   kind: EnvoyProxy
+  #   name: prod-proxy
+  #   namespace: gateway-infra                                   # GatewayClass cluster-scoped -> bắt buộc khai namespace

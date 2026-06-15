@@ -4,10 +4,12 @@
 # Đây là resource trung tâm; mọi file khác đều quy chiếu về cái tên main-gateway
 # hoặc về HTTPRoute/Service nằm phía sau nó. SƠ ĐỒ TOÀN STACK:
 #
-#   02-gatewayclass.yaml      GatewayClass(eg) ──parametersRef──> EnvoyProxy(prod-proxy)  01-envoy-proxy.yaml
-#                                 ▲                                   (NodePort 30080/30443, bare-metal)
+#   02-gatewayclass.yaml      GatewayClass(eg)   (chỉ chọn controller; parametersRef ĐÃ TẮT)
+#                                 ▲
 #                                 │ gatewayClassName: eg
 #   03-gateway.yaml  ►►►  Gateway(main-gateway, ns=gateway-infra)
+#                                 │  spec.infrastructure.parametersRef --> EnvoyProxy(prod-proxy)  01-envoy-proxy.yaml
+#                                 │     (EnvoyProxy cùng ns gateway-infra; NodePort 30080/30443, bare-metal)
 #                                 │  listener https:443  (Secret wildcard-tls)
 #                                 │
 #         ┌───────────────────────┼──────────────────────────────┐
@@ -32,7 +34,18 @@ metadata:
   name: main-gateway                        # tên được tham chiếu bởi: HTTPRoute.parentRefs, ClientTrafficPolicy, BackendTrafficPolicy
   namespace: gateway-infra
 spec:
-  gatewayClassName: eg                      # -> GatewayClass(eg) -> EnvoyProxy(prod-proxy): quyết định Envoy chạy thế nào
+  gatewayClassName: eg                      # -> GatewayClass(eg): chỉ chọn controller (parametersRef ở class đã tắt)
+
+  # --- INFRASTRUCTURE --- attach EnvoyProxy mức Gateway (thay GatewayClass.parametersRef).
+  # parametersRef ở đây là LocalParametersReference: CHỈ group/kind/name, KHÔNG có namespace
+  # -> EnvoyProxy(prod-proxy) BẮT BUỘC nằm cùng namespace gateway-infra với Gateway này (xem 01).
+  # Cả GatewayClass lẫn Gateway cùng set thì Gateway-level THẮNG. Không được bật mergeGateways
+  # trong EnvoyProxy khi attach mức Gateway.
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: prod-proxy
 
   listeners:
   # --- Listener HTTP: chỉ để redirect sang HTTPS, không phục vụ app ---

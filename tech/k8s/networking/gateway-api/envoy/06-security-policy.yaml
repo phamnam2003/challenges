@@ -8,8 +8,11 @@
 #        ▲ targetRefs (mức route -> chỉ shop-api bị áp auth, route khác không ảnh hưởng)
 #   SecurityPolicy(shop-api-auth)
 #
-# Thứ tự thực thi trong Envoy: CORS preflight -> JWT verify -> authorization.
-# Vì vậy OPTIONS (preflight) phải lọt qua trước khi JWT chặn -> CORS xử lý sớm.
+# Thứ tự FILTER mặc định EG: jwt_authn -> rbac(authorization) -> cors -> router (CORS chạy
+# SAU JWT). Preflight OPTIONS (browser không kèm Bearer) bị JWT trả 401 TRƯỚC khi CORS kịp
+# đáp -> hỏng CORS (issue gateway#2312; EG không bật bypass_cors_preflight). Vì vậy
+# 01-envoy-proxy.yaml ĐÃ thêm filterOrder đẩy cors trước jwt_authn. Route cũng phải cho qua
+# OPTIONS (05 match PathPrefix "/" nên OPTIONS lọt) thì filter CORS mới được gọi.
 # =============================================================================
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
@@ -45,7 +48,7 @@ spec:
     allowMethods:
     - GET
     - POST
-    - OPTIONS                               # THIẾU OPTIONS = preflight fail, FE báo lỗi CORS dù backend vẫn sống
+    - OPTIONS                               # đây là Access-Control-Allow-Methods trả cho browser; preflight chạy được nhờ route cho qua OPTIONS + filterOrder (01), KHÔNG nhờ dòng này
     allowHeaders:
     - Authorization                         # cho phép gửi Bearer token mà JWT block ở trên cần
     - Content-Type
@@ -54,18 +57,26 @@ spec:
     maxAge: 1h                              # cache kết quả preflight, giảm số OPTIONS request
     allowCredentials: true                  # (default: false) cho phép gửi cookie/Authorization kèm request
 
-  # --- AUTHORIZATION: cho qua mặc định, chỉ chặn /admin nếu không phải role admin ---
+  # --- AUTHORIZATION: cho qua mặc định, riêng /admin yêu cầu role=admin ---
+  # action của rule áp dụng KHI rule MATCH (principal AND operation), duyệt trên xuống, match
+  # đầu tiên thắng. KHÔNG dùng 1 rule "Deny principal=role:admin": như vậy chặn ĐÚNG admin và
+  # cho người KHÔNG-admin lọt vào /admin (ngược ý đồ). Cách đúng (allowlist trên /admin):
+  # Allow admin -> /admin, rồi Deny phần còn lại trên /admin; path khác rơi về defaultAction.
   authorization:
-    defaultAction: Allow                    # (default: Deny nếu có rules) - mặc định cho qua; siết riêng /admin bên dưới
+    defaultAction: Allow                    # (default: Deny) - path != /admin cho qua (JWT đã xác thực ở trên)
     rules:
-    - name: admin-only
-      action: Deny                          # rules duyệt theo thứ tự, match đầu tiên thắng
+    - name: admin-allow                     # admin -> được vào /admin
+      action: Allow
       principal:
         jwt:
           provider: auth0                   # tham chiếu jwt.providers[].name ở trên
           claims:
           - name: role
             valueType: String               # String | StringArray
-            values: ["admin"]               # request KHÔNG có role=admin -> bị Deny khỏi /admin
+            values: ["admin"]
       operation:
-        paths: ["/admin"]                   # rule chỉ áp cho path này
+        paths: ["/admin"]
+    - name: admin-deny-rest                 # còn lại (thiếu role=admin) -> chặn khỏi /admin
+      action: Deny                          # rule chỉ có operation, không principal = match MỌI identity trên path này
+      operation:
+        paths: ["/admin"]
