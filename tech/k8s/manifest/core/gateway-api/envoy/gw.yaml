@@ -1,58 +1,83 @@
-# Namespace riêng cho hạ tầng Gateway - tách Gateway (do platform team quản lý)
-# khỏi namespace ứng dụng. HTTPRoute của app ở namespace khác vẫn attach được
-# nhờ allowedRoutes.namespaces.from: All bên dưới.
+# Namespace + Gateway - ĐIỂM VÀO TRAFFIC
+# gateway-infra: namespace do platform/ops sở hữu, chứa Gateway + EnvoyProxy +
+# các policy mức gateway. Tách khỏi namespace app (app-team) theo mô hình 2
+# namespace: ops sở hữu hạ tầng, dev sở hữu HTTPRoute + app + policy mức route.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: default-gateway
+  name: gateway-infra
 
 ---
 
-# Gateway - điểm vào (entry point) thật của traffic. Khi tạo, Envoy Gateway tự
-# provision một bộ Envoy proxy pod + Service (theo proxy.yaml) để lắng nghe.
+# Gateway - resource trung tâm; controller thấy Gateway sẽ tự provision Envoy
+# proxy pod + Service (theo proxy.yaml) để lắng nghe traffic.
+#
+#   GatewayClass(eg)  [gc.yaml]                         EnvoyProxy(prod-proxy)  [proxy.yaml]
+#         ^                                                     ^
+#         | gatewayClassName: eg                                | infrastructure.parametersRef
+#   Gateway(main-gateway, ns=gateway-infra)  -------------------+
+#         |
+#         | listeners: http:80 (nginx đã terminate TLS) [+ https:443 tùy chọn]
+#         v
+#   HTTPRoute(app-team)  --backendRefs-->  Service(app)
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: cluster-default
-  namespace: default-gateway
+  name: main-gateway                        # được tham chiếu bởi HTTPRoute.parentRefs + các policy mức gateway
+  namespace: gateway-infra
 spec:
-  # Trỏ tới GatewayClass ở gc.yaml -> kế thừa controller + EnvoyProxy params.
-  gatewayClassName: envoy-gateway-class
+  gatewayClassName: eg                      # -> GatewayClass(eg): chọn controller
+
+  # --- INFRASTRUCTURE --- attach EnvoyProxy mức Gateway (thay GatewayClass.parametersRef).
+  # parametersRef ở đây là LocalParametersReference: CHỈ group/kind/name, KHÔNG có namespace
+  # -> EnvoyProxy(prod-proxy) BẮT BUỘC cùng namespace gateway-infra với Gateway này.
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: prod-proxy
+
   listeners:
-    - name: http
-      protocol: HTTP
-      port: 80
-      allowedRoutes:
-        namespaces:
-          # from quyết định HTTPRoute ở namespace nào được phép attach vào listener:
-          #
-          #   All    - bất kỳ namespace nào (dùng chung toàn cluster, hợp với
-          #            tên "cluster-default"). Tiện nhưng lỏng nhất về bảo mật.
-          #   Same   - chỉ HTTPRoute CÙNG namespace với Gateway (default-gateway).
-          #            Khoá kín, chỉ platform team đặt route được.
-          #   Selector - chỉ namespace có nhãn khớp matchLabels (xem ví dụ dưới).
-          #            Cân bằng: cấp quyền theo nhãn cho từng team/tenant.
-          from: All
+  # --- Listener HTTP: listener phục vụ chính ---
+  # Mô hình bare-metal mặc định: nginx node ngoài TERMINATE TLS ở biên, rồi proxy_pass
+  # plaintext xuống NodePort 30080. Envoy chỉ thấy HTTP -> không cần Secret cert trong
+  # cluster. Đổi sang terminate-tại-Envoy thì bật listener https bên dưới.
+  - name: http
+    port: 80                                # tạo cổng Service tên "http-80" -> proxy.yaml pin nodePort 30080
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        # from quyết định HTTPRoute ở namespace nào được attach:
+        #   All      - mọi namespace (tiện nhưng lỏng nhất về bảo mật)
+        #   Same     - chỉ HTTPRoute cùng ns gateway-infra (chỉ ops đặt route)
+        #   Selector - chỉ ns có nhãn khớp matchLabels (cân bằng: cấp quyền theo nhãn)
+        # Chọn Selector: app-team phải được gắn nhãn mới attach được.
+        #   kubectl label ns app-team gateway-access=true
+        from: Selector
+        selector:
+          matchLabels:
+            gateway-access: "true"
 
-          # Ví dụ Same - bỏ comment và xoá `from: All` ở trên để dùng:
-          # from: Same
-
-          # Ví dụ Selector - chỉ ns gắn nhãn `gateway-access: "true"` mới attach được.
-          # Gắn nhãn cho ns: kubectl label ns <ten-ns> gateway-access=true
-          # from: Selector
-          # selector:
-          #   matchLabels:
-          #     gateway-access: "true"
-
-      # --- Tối ưu: thêm listener HTTPS khi đã có chứng chỉ (TLS termination) ---
-      # - name: https
-      #   protocol: HTTPS
-      #   port: 443
-      #   tls:
-      #     mode: Terminate
-      #     certificateRefs:
-      #       - kind: Secret
-      #         name: wildcard-tls   # Secret kubernetes.io/tls, PHẢI cùng ns với Gateway
-      #   allowedRoutes:
-      #     namespaces:
-      #       from: All
+  # --- Listener HTTPS (tùy chọn): bật khi terminate TLS TẠI ENVOY ---
+  # Yêu cầu đi kèm:
+  #   1. Secret kubernetes.io/tls tên wildcard-tls TRONG ns gateway-infra (khác ns cần ReferenceGrant).
+  #   2. proxy.yaml đổi patch sang JSONMerge thêm cổng https-443 nodePort 30443 (xem proxy.yaml).
+  #   3. nginx node ngoài chuyển sang stream passthrough -> <node>:30443.
+  # Khi đó thường đổi listener http ở trên thành redirect 80->443 (thêm một HTTPRoute redirect
+  # do ops quản trong gateway-infra, và đặt allowedRoutes.from: Same cho http).
+  #
+  # - name: https
+  #   port: 443                             # tạo cổng Service tên "https-443" -> proxy.yaml pin nodePort 30443
+  #   protocol: HTTPS
+  #   hostname: "*.example.com"             # listener bao mọi subdomain; HTTPRoute siết hostname cụ thể
+  #   tls:
+  #     mode: Terminate                     # Envoy terminate TLS ở biên; tới backend re-encrypt bằng BackendTLSPolicy
+  #     certificateRefs:
+  #     - name: wildcard-tls                # Secret kubernetes.io/tls, PHẢI cùng ns gateway-infra
+  #       kind: Secret
+  #   allowedRoutes:
+  #     namespaces:
+  #       from: Selector
+  #       selector:
+  #         matchLabels:
+  #           gateway-access: "true"
