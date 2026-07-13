@@ -1,5 +1,5 @@
 # Build staged
-FROM golang:1.23-alpine3.20 AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /http-server
 COPY ./vendor ./vendor
 COPY . .
