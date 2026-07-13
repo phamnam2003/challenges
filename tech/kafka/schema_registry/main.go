@@ -30,8 +30,8 @@ var (
 )
 
 type example struct {
-	A int64  `arvo:"a"`
-	B string `arvo:"b"`
+	A int64  `avro:"a"`
+	B string `avro:"b"`
 }
 
 func main() {
