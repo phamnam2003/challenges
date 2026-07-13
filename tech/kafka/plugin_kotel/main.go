@@ -21,7 +21,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -180,7 +180,7 @@ func do() error {
 			semconv.ServiceNamespaceKey.String("tech.kafka.ns_plugin_kotel"),
 			semconv.ServiceVersionKey.String("0.1.0"),
 			semconv.ServiceInstanceIDKey.String(uuid.NewString()),
-			semconv.DeploymentEnvironmentName("dev"),
+			semconv.DeploymentEnvironmentNameKey.String("dev"),
 		),
 	)
 	if err != nil {
