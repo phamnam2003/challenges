@@ -32,4 +32,4 @@ spec:
         matchLabels:
           cnpg.io/cluster: cnpg-cluster-postgresql
   monitoring:
-    enablePodMonitor: fals
+    enablePodMonitor: false
