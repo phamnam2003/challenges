@@ -1,0 +1,7 @@
+# Namespace cnpg-cluster - chứa toàn bộ tài nguyên của PostgreSQL cluster
+# (Secret, Cluster, PVC, Service do operator sinh). Tách khỏi ns operator
+# (cnpg-system): operator chạy 1 chỗ, quản nhiều cluster ở các ns khác nhau.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cnpg-cluster

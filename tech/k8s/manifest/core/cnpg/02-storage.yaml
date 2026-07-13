@@ -1,0 +1,24 @@
+# StorageClass cho CNPG trên Longhorn (bare-metal on-prem)
+# Nguyên tắc: PostgreSQL đã replicate ở tầng ứng dụng (streaming replication,
+# instances: 3). Nếu Longhorn replicate thêm ở tầng storage -> double replication,
+# phí disk + I/O mà không thêm an toàn. Nên StorageClass này TẮT replicate storage
+# và ghim dữ liệu local theo pod.
+#
+# Yêu cầu: Longhorn đã cài trước (core/storage/longhorn.sh) vì provisioner
+# driver.longhorn.io.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-cnpg
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true                 # cho phép mở rộng PVC không downtime (data lớn dần)
+parameters:
+  numberOfReplicas: "1"                     # KHÔNG replicate ở tầng storage; Postgres đã có 2 replica ở 2 node khác
+  dataLocality: "strict-local"              # ghim volume trên đúng node chạy pod -> bỏ network I/O, quan trọng cho DB
+  staleReplicaTimeout: "2880"               # phút (48h) giữ replica cũ trước khi dọn; đủ dài để rebuild sau sự cố node
+  fsType: "ext4"
+reclaimPolicy: Retain                       # xóa PVC KHÔNG xóa PV -> chống mất data do lỡ tay; dọn PV thủ công
+# WaitForFirstConsumer BẮT BUỘC đi với strict-local: tạo PV SAU khi pod được
+# schedule, để volume nằm đúng node của pod. Thiếu field này -> Longhorn tạo
+# volume ở node ngẫu nhiên, pod schedule node khác -> Pending vĩnh viễn.
+volumeBindingMode: WaitForFirstConsumer

@@ -1,0 +1,99 @@
+# Cluster - CRD trung tâm của CNPG: khai báo 1 dòng, operator lo toàn bộ vòng đời
+# PostgreSQL (init, replication, failover, fencing, backup).
+#
+#   CNPG operator (ns cnpg-system)  --watch-->  Cluster(cnpg-cluster-postgresql)
+#         |
+#         | tạo & quản trực tiếp Pod (KHÔNG dùng StatefulSet)
+#         v
+#   Pod-0 PRIMARY --WAL--> Pod-1 REPLICA --WAL--> Pod-2 REPLICA
+#         |                    |                     |
+#   PVC data + PVC wal   (mỗi pod 2 PVC: tách WAL khỏi data)
+#
+# Operator tự sinh 3 Service: -rw (ghi, trỏ primary), -ro (đọc, cân tải replica),
+# -r (mọi instance). App dùng cnpg-cluster-postgresql-rw để ghi.
+#
+# THỨ TỰ APPLY: cnpg.sh (operator) -> 01-namespace -> 02-storage + 03-secret -> 04-cluster.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cnpg-cluster-postgresql
+  namespace: cnpg-cluster
+spec:
+  description: "CloudNativePG Production PostgreSQL Cluster"
+  instances: 3                              # 1 primary + 2 replica; chịu được mất 1 node vẫn còn quorum phục vụ
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.4
+
+  # Tắt superuser access: giảm bề mặt tấn công, app chỉ dùng owner appuser.
+  # (default operator mới đã false; để explicit cho rõ chủ đích.)
+  enableSuperuserAccess: false
+
+  # --- STORAGE --- tách WAL sang PVC riêng: WAL bloat (transaction dài / replication
+  # lag) không làm đầy disk data; WAL ghi tuần tự, data ghi ngẫu nhiên -> tách disk
+  # giảm tranh chấp I/O.
+  storage:
+    storageClass: longhorn-cnpg
+    size: 25Gi
+  walStorage:
+    storageClass: longhorn-cnpg
+    size: 5Gi                               # ~10-20% volume data là hợp lý
+
+  # --- RESOURCES --- đặt request/limit để scheduler xếp pod đúng + tránh OOM bất ngờ.
+  # memory request = limit: ghim RAM cho DB, không để bị evict/OOM khi node ép bộ nhớ.
+  # KHÔNG limit CPU: tránh throttle query khi tải tăng (DB nhạy latency), chỉ đặt request.
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 1Gi
+    limits:
+      memory: 1Gi
+
+  # --- POSTGRESQL TUNING --- CNPG đã có default hợp lý; chỉ override vài tham số chính.
+  # shared_buffers để trống -> CNPG tự tính ~25% RAM theo resources ở trên.
+  postgresql:
+    parameters:
+      max_connections: "200"                # trần kết nối; app đông thì đặt PgBouncer (CNPG Pooler) thay vì tăng vô hạn
+      log_min_duration_statement: "1000"    # log query chậm > 1s để soi hiệu năng
+
+  # unsupervised: operator tự update replica trước rồi switchover (replica lên primary,
+  # primary cũ restart image mới). Có downtime ngắn lúc switchover nhưng không cần thao tác tay.
+  primaryUpdateStrategy: unsupervised
+
+  # --- ĐẶT POD RẢI ĐỀU NODE --- 1 node chết chỉ mất 1 instance, 2 instance còn lại phục vụ.
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: preferred          # preferred (không required): 3 instance / 2 node vẫn schedule được instance thứ 3; required -> Pending mãi
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          cnpg.io/cluster: cnpg-cluster-postgresql
+
+  # --- BOOTSTRAP --- chỉ chạy LẦN ĐẦU khởi tạo cluster; sau đó replica clone từ primary.
+  bootstrap:
+    initdb:
+      database: bootstrap-cluster-db
+      owner: appuser
+      secret:
+        name: cnpg-cluster-credentials      # Secret (03) PHẢI tồn tại trước khi apply file này
+
+  # --- MONITORING --- chỉ bật khi đã cài Prometheus Operator (CRD PodMonitor tồn tại),
+  # nếu không operator log lỗi liên tục.
+  monitoring:
+    enablePodMonitor: false
+
+  # --- BACKUP (bật khi có object store) --- replication chống mất node, KHÔNG chống
+  # xóa nhầm / corruption / ransomware -> production PHẢI có backup riêng.
+  # CNPG >= 1.26 khuyến nghị Barman Cloud Plugin (in-tree barmanObjectStore deprecated,
+  # gỡ ở 1.31). Các bước:
+  #   1. Cài plugin barman-cloud + tạo Secret credentials của object store (vd MinIO on-prem / S3).
+  #   2. Tạo ObjectStore CR (chứa endpoint, bucket, retention) cùng ns cluster.
+  #   3. Thêm block plugins dưới đây trỏ tới ObjectStore, rồi tạo ScheduledBackup.
+  #
+  # plugins:
+  # - name: barman-cloud.cloudnative-pg.io
+  #   isWALArchiver: true
+  #   parameters:
+  #     barmanObjectName: cnpg-cluster-backup   # tên ObjectStore CR
